@@ -1,13 +1,10 @@
 use std::{env, process};
 
 fn run() -> Result<(), CliError> {
-    let file_name = match env::args().nth(1) {
-        Some(f) => f,
-        None => {
-            print_usage();
-            return Err(CliError::MissingFileName)
-        }
-    };
+    let file_name = env::args().nth(1).ok_or_else(|| {
+        print_usage();
+        CliError::MissingFileName
+    })?;
     unimplemented!();
 }
 
