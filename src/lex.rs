@@ -20,14 +20,14 @@ impl Loc {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Span<'a> {
-    pub file_name: &'a str,
+pub struct Span<'f> {
+    pub file_name: &'f str,
     pub start: Loc,
     pub end: Loc,
 }
 
-impl<'a> Span<'a> {
-    pub fn new(file_name: &'a str, start: Loc, end: Loc) -> Self {
+impl<'f> Span<'f> {
+    pub fn new(file_name: &'f str, start: Loc, end: Loc) -> Self {
         Span {
             file_name,
             start,
@@ -35,19 +35,19 @@ impl<'a> Span<'a> {
         }
     }
 
-    pub fn zero(file_name: &'a str) -> Self {
+    pub fn zero(file_name: &'f str) -> Self {
         Span::new(file_name, Default::default(), Default::default())
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Tok<'a, 'b> {
-    pub tt: Tt<'a>,
-    pub span: Span<'b>,
+pub struct Tok<'f, 's> {
+    pub tt: Tt<'s>,
+    pub span: Span<'f>,
 }
 
-impl<'a, 'b> Tok<'a, 'b> {
-    pub fn new(tt: Tt<'a>, span: Span<'b>) -> Self {
+impl<'f, 's> Tok<'f, 's> {
+    pub fn new(tt: Tt<'s>, span: Span<'f>) -> Self {
         Tok {
             tt,
             span,
@@ -56,30 +56,30 @@ impl<'a, 'b> Tok<'a, 'b> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Tt<'a> {
-    StrLitSingle(&'a str),
-    StrLitDouble(&'a str),
-    NumLit(&'a str),
+pub enum Tt<'s> {
+    StrLitSingle(&'s str),
+    StrLitDouble(&'s str),
+    NumLit(&'s str),
     // ...
 
     Eof,
 }
 
 #[derive(Debug)]
-pub struct Lexer<'a, 'b> {
-    file_name: &'a str,
-    stream: Stream<'b>,
-    here: Tok<'b, 'a>,
+pub struct Lexer<'f, 's> {
+    file_name: &'f str,
+    stream: Stream<'s>,
+    here: Tok<'f, 's>,
 }
 
 #[derive(Debug)]
-pub struct Stream<'a> {
-    input: &'a str,
+pub struct Stream<'s> {
+    input: &'s str,
     loc: Loc,
 }
 
-impl<'a, 'b> Lexer<'a, 'b> {
-    pub fn new(file_name: &'a str, input: &'b str) -> Self {
+impl<'f, 's> Lexer<'f, 's> {
+    pub fn new(file_name: &'f str, input: &'s str) -> Self {
         Lexer {
             file_name,
             stream: Stream::new(input),
@@ -88,8 +88,8 @@ impl<'a, 'b> Lexer<'a, 'b> {
     }
 }
 
-impl<'a> Stream<'a> {
-    pub fn new(input: &'a str) -> Self {
+impl<'s> Stream<'s> {
+    pub fn new(input: &'s str) -> Self {
         Stream {
             input,
             loc: Default::default(),
