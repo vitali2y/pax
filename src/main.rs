@@ -1,7 +1,8 @@
-use std::env;
+use std::{env, process};
 
 fn print_usage() -> ! {
-    unimplemented!();
+    println!("usage: esparse <file>");
+    process::exit(1);
 }
 
 fn main() {
