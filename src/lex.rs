@@ -60,8 +60,9 @@ pub enum Tt<'a> {
     StrLitSingle(&'a str),
     StrLitDouble(&'a str),
     NumLit(&'a str),
-
     // ...
+
+    Eof,
 }
 
 #[derive(Debug)]
