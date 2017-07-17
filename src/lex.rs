@@ -42,7 +42,7 @@ impl<'a> Span<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tok<'a> {
-    pub type: Tt,
+    pub tt: Tt,
     pub span: Span<'a>,
 }
 
