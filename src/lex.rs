@@ -1,4 +1,4 @@
-
+#[derive(Debug)]
 pub struct Lexer<'a, 'b> {
     file_name: &'a str,
     input: &'b str,

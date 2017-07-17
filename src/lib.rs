@@ -1,5 +1,6 @@
 pub mod lex;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParseOptions<'a> {
     pub first_line: usize,
     pub file_name: &'a str,
