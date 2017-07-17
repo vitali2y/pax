@@ -10,7 +10,7 @@ fn run() -> Result<(), CliError> {
     unimplemented!();
 }
 
-const APP_NAME: &'static str = "esparse";
+const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
 
 fn print_usage() {
     println!("usage: {} <file>", APP_NAME);
