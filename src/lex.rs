@@ -74,6 +74,16 @@ pub struct Lexer<'f, 's> {
     here: Tok<'f, 's>,
 }
 
+impl<'f, 's> Lexer<'f, 's> {
+    pub fn new(file_name: &'f str, input: &'s str) -> Self {
+        Lexer {
+            file_name,
+            stream: Stream::new(input),
+            here: Tok::new(Tt::Eof, Span::zero(file_name)),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Stream<'s> {
     input: &'s str,
@@ -84,16 +94,6 @@ pub struct Stream<'s> {
     next_pos: usize,
     next_width: usize,
     next: Option<char>,
-}
-
-impl<'f, 's> Lexer<'f, 's> {
-    pub fn new(file_name: &'f str, input: &'s str) -> Self {
-        Lexer {
-            file_name,
-            stream: Stream::new(input),
-            here: Tok::new(Tt::Eof, Span::zero(file_name)),
-        }
-    }
 }
 
 impl<'s> Stream<'s> {
