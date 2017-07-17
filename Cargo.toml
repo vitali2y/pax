@@ -1,0 +1,6 @@
+[package]
+name = "esparse"
+version = "0.1.0"
+authors = ["Nathan"]
+
+[dependencies]
