@@ -68,14 +68,31 @@ pub enum Tt<'a> {
 #[derive(Debug)]
 pub struct Lexer<'a, 'b> {
     file_name: &'a str,
-    input: &'b str,
+    stream: Stream<'b>,
+    here: Tok<'a, 'b>,
+}
+
+#[derive(Debug)]
+pub struct Stream<'a> {
+    input: &'a str,
+    loc: Loc,
 }
 
 impl<'a, 'b> Lexer<'a, 'b> {
     pub fn new(file_name: &'a str, input: &'b str) -> Self {
         Lexer {
             file_name,
+            stream: Stream::new(input),
+            here: Tok::new(Tt::Eof, Span::zero(file_name)),
+        }
+    }
+}
+
+impl<'a> Stream<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Stream {
             input,
+            loc: Default::default(),
         }
     }
 }
