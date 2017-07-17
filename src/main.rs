@@ -1,9 +1,5 @@
 use std::{env, process};
 
-fn print_usage() {
-    println!("usage: esparse <file>");
-}
-
 fn run() -> Result<(), CliError> {
     let file_name = match env::args().nth(1) {
         Some(f) => f,
@@ -13,6 +9,10 @@ fn run() -> Result<(), CliError> {
         }
     };
     unimplemented!();
+}
+
+fn print_usage() {
+    println!("usage: esparse <file>");
 }
 
 enum CliError {
