@@ -1,3 +1,5 @@
+extern crate esparse;
+
 use std::{env, process, io, fs};
 use std::io::prelude::*;
 
