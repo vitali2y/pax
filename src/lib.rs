@@ -1,3 +1,4 @@
+#![feature(test)]
 pub mod lex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
