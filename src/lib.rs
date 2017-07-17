@@ -18,13 +18,13 @@ impl<'a> Default for ParseOptions<'a> {
     }
 }
 
-pub fn parse_script(input: &str, options: ParseOptions) -> ! {
+pub fn parse_script(_input: &str, _options: ParseOptions) -> ! {
     unimplemented!()
 }
-pub fn parse_module(input: &str, options: ParseOptions) -> ! {
+pub fn parse_module(_input: &str, _options: ParseOptions) -> ! {
     unimplemented!()
 }
-pub fn parse_expr(input: &str, options: ParseOptions) -> ! {
+pub fn parse_expr(_input: &str, _options: ParseOptions) -> ! {
     unimplemented!()
 }
 

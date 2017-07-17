@@ -73,9 +73,18 @@ impl<'f, 's> Tok<'f, 's> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tt<'s> {
     Id(&'s str),
-    StrLitSingle(&'s str),
-    StrLitDouble(&'s str),
-    NumLit(&'s str),
+
+    StrLitSgl(&'s str),
+    StrLitDbl(&'s str),
+
+    NumLitBin(&'s str),
+    NumLitOct(&'s str),
+    NumLitDec(&'s str),
+    NumLitHex(&'s str),
+
+    TemplateStart(&'s str),
+    TemplateMiddle(&'s str),
+    TemplateEnd(&'s str),
 
     // Punctuator ::
     Lbrace, Lparen, Rparen, Lbracket, Rbracket,
@@ -107,10 +116,19 @@ pub struct Lexer<'f, 's> {
     file_name: &'f str,
     stream: Stream<'s>,
     here: Tok<'f, 's>,
+    state: LexState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LexState {
+    Div,
+    RegExp,
+    RegExpOrTemplateTail(usize),
+    TemplateTail(usize),
 }
 
 macro_rules! eat {
-    ($stream:expr, { $($p:pat => $e:expr ,)* _ => $else:expr $(,)* }) => {
+    ($stream:expr, $($p:expr => $e:expr ,)* _ => $else:expr $(,)*) => {
         match $stream.here() {
             $(Some($p) => {
                 $stream.advance();
@@ -128,6 +146,7 @@ impl<'f, 's> Lexer<'f, 's> {
             file_name,
             stream: Stream::new(input),
             here: Tok::new(Tt::Eof, Span::zero(file_name)),
+            state: LexState::RegExp,
         };
         lexer.advance();
         lexer
@@ -170,75 +189,80 @@ impl<'f, 's> Lexer<'f, 's> {
             ';' => Tt::Semi,
             ',' => Tt::Comma,
 
-            '<' => {
-                match self.stream.here() {
-                    Some('<') => {
-                        self.stream.advance();
-                        if self.stream.eat('=') {
-                            Tt::LtLtEq
-                        } else {
-                            Tt::LtLt
-                        }
-                    }
-                    Some('=') => {
-                        self.stream.advance();
-                        Tt::LtEq
-                    }
-                    _ => Tt::Lt
-                }
-            }
-            '>' => {
-                match self.stream.here() {
-                    Some('>') => {
-                        self.stream.advance();
-                        match self.stream.here() {
-                            Some('>') => {
-                                self.stream.advance();
-                                if self.stream.eat('=') {
-                                    Tt::GtGtGtEq
-                                } else {
-                                    Tt::GtGtGt
-                                }
-                            }
-                            Some('=') => {
-                                self.stream.advance();
-                                Tt::GtGtEq
-                            }
-                            _ => Tt::GtGt
-                        }
-                    }
-                    Some('=') => {
-                        self.stream.advance();
-                        Tt::GtEq
-                    }
-                    _ => Tt::Gt
-                }
-            }
-            // '=' => {
-            //     match self.stream.here() {
-            //         '>' => {
-            //             self.stream.advance();
-            //             Tt::
-            //         }
-            //     }
-            // }
-            // EqEq, BangEq, EqEqEq, BangEqEq,
-            // Plus, Minus, Star, Percent, StarStar,
-            // PlusPlus, MinusMinus,
-            // And, Or, Circumflex,
-            // Bang, Tilde,
-            // AndAnd, OrOr,
-            // Question, Colon,
-            // Eq, PlusEq, MinusEq, StarEq, PercentEq, StarStarEq, AndEq, OrEq, CircumflexEq,
-            // EqGt,
-
-            '+' => {
-                if self.stream.eat('+') {
-                    Tt::PlusPlus
-                } else {
-                    Tt::Plus
-                }
-            },
+            '<' => eat!(self.stream,
+                '<' => eat!(self.stream,
+                    '=' => Tt::LtLtEq,
+                    _ => Tt::LtLt,
+                ),
+                '=' => Tt::LtEq,
+                _ => Tt::Lt,
+            ),
+            '>' => eat!(self.stream,
+                '>' => eat!(self.stream,
+                    '>' => eat!(self.stream,
+                        '=' => Tt::GtGtGtEq,
+                        _ => Tt::GtGtGt,
+                    ),
+                    '=' => Tt::GtGtEq,
+                    _ => Tt::GtGt,
+                ),
+                '=' => Tt::GtEq,
+                _ => Tt::Gt,
+            ),
+            '=' => eat!(self.stream,
+                '>' => Tt::EqGt,
+                '=' => eat!(self.stream,
+                    '=' => Tt::EqEqEq,
+                    _ => Tt::EqEq,
+                ),
+                _ => Tt::Eq,
+            ),
+            '!' => eat!(self.stream,
+                '=' => eat!(self.stream,
+                    '=' => Tt::BangEqEq,
+                    _ => Tt::BangEq,
+                ),
+                _ => Tt::Bang,
+            ),
+            '+' => eat!(self.stream,
+                '+' => Tt::PlusPlus,
+                '=' => Tt::PlusEq,
+                _ => Tt::Plus,
+            ),
+            '-' => eat!(self.stream,
+                '-' => Tt::MinusMinus,
+                '=' => Tt::MinusEq,
+                _ => Tt::Minus,
+            ),
+            '*' => eat!(self.stream,
+                '*' => eat!(self.stream,
+                    '=' => Tt::StarStarEq,
+                    _ => Tt::StarStar,
+                ),
+                '=' => Tt::StarEq,
+                _ => Tt::Star,
+            ),
+            '%' => eat!(self.stream,
+                '=' => Tt::PercentEq,
+                _ => Tt::Percent,
+            ),
+            '&' => eat!(self.stream,
+                '&' => Tt::AndAnd,
+                '=' => Tt::AndEq,
+                _ => Tt::And,
+            ),
+            '|' => eat!(self.stream,
+                '|' => Tt::OrOr,
+                '=' => Tt::OrEq,
+                _ => Tt::Or,
+            ),
+            '^' => eat!(self.stream,
+                '=' => Tt::CircumflexEq,
+                _ => Tt::Circumflex,
+            ),
+            '~' => Tt::Tilde,
+            '?' => Tt::Question,
+            ':' => Tt::Colon,
 
             // TODO '\\' |
               '$'
@@ -913,7 +937,7 @@ impl<'f, 's> Lexer<'f, 's> {
                             // ID_Continue:
                                 | '\u{0030}'...'\u{0039}'    // DIGIT ZERO...DIGIT NINE
                                 | '\u{0041}'...'\u{005A}'    // LATIN CAPITAL LETTER A...LATIN CAPITAL LETTER Z
-                                | '\u{005F}'                 // LOW LINE
+                                // | '\u{005F}'                 // LOW LINE
                                 | '\u{0061}'...'\u{007A}'    // LATIN SMALL LETTER A...LATIN SMALL LETTER Z
                                 | '\u{00AA}'                 // FEMININE ORDINAL INDICATOR
                                 | '\u{00B5}'                 // MICRO SIGN
@@ -2104,7 +2128,9 @@ impl<'f, 's> Lexer<'f, 's> {
                 Tt::Id(self.stream.str_from(start.pos))
             }
 
-            _ => unimplemented!(),
+            _ => {
+                panic!("unexpected {} @ {}:{} (col {})", here, self.file_name, start.row + 1, start.col + 1)
+            },
         };
         Tok {
             tt,
@@ -2248,6 +2274,54 @@ impl<'s> Stream<'s> {
                     //     self.advance();
                     //     nl = true;
                     // }
+                    '/' => match self.next {
+                        Some('*') => {
+                            self.advance();
+                            self.advance();
+                            'outer: loop {
+                                match self.here {
+                                    Some('*') => {
+                                        loop {
+                                            self.advance();
+                                            match self.here {
+                                                Some('/') => {
+                                                    self.advance();
+                                                    break 'outer
+                                                },
+                                                Some('*') => {}
+                                                Some(_) => {
+                                                    self.advance();
+                                                    break
+                                                }
+                                                None => {
+                                                    panic!("unterminated multiline comment")
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Some(_) => {
+                                        self.advance();
+                                    }
+                                    None => {
+                                        panic!("unterminated multiline comment")
+                                    }
+                                }
+                            }
+                        },
+                        Some('/') => {
+                            self.advance();
+                            self.advance();
+                            self.skip_while(|c| match c {
+                                  '\u{000A}' // LINE FEED (LF)  <LF>
+                                | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
+                                | '\u{2028}' // LINE SEPARATOR  <LS>
+                                | '\u{2029}' // PARAGRAPH SEPARATOR <PS>
+                                => false,
+                                _ => true,
+                            });
+                        },
+                        _ => break,
+                    },
                     _ => break,
                 },
                 None => break,
@@ -2387,6 +2461,60 @@ mod test {
     use super::*;
     use std::fs;
     use std::io::prelude::*;
+
+    fn lex_test(source: &str, expected: &[Tt]) {
+        let mut lexer = Lexer::new("<input>", source);
+        for tt in expected {
+            assert_eq!(tt, &lexer.advance().tt);
+        }
+        assert_eq!(Tt::Eof, lexer.advance().tt);
+    }
+
+    #[test]
+    fn test_punctuators() {
+        lex_test(r#"
+            {()[]
+            ....;,
+            <><=>=
+            ==!= ===!==
+            +-*%**
+            ++--
+            <<>>>>>
+            &|^
+            !~
+            &&||
+            ?:
+            =+=-=*=%=**=<<=>>=>>>=&=|=^=
+            =>
+        "#, &[
+            Tt::Lbrace, Tt::Lparen, Tt::Rparen, Tt::Lbracket, Tt::Rbracket,
+            Tt::DotDotDot, Tt::Dot, Tt::Semi, Tt::Comma,
+            Tt::Lt, Tt::Gt, Tt::LtEq, Tt::GtEq,
+            Tt::EqEq, Tt::BangEq, Tt::EqEqEq, Tt::BangEqEq,
+            Tt::Plus, Tt::Minus, Tt::Star, Tt::Percent, Tt::StarStar,
+            Tt::PlusPlus, Tt::MinusMinus,
+            Tt::LtLt, Tt::GtGtGt, Tt::GtGt,
+            Tt::And, Tt::Or, Tt::Circumflex,
+            Tt::Bang, Tt::Tilde,
+            Tt::AndAnd, Tt::OrOr,
+            Tt::Question, Tt::Colon,
+            Tt::Eq, Tt::PlusEq, Tt::MinusEq, Tt::StarEq, Tt::PercentEq, Tt::StarStarEq, Tt::LtLtEq, Tt::GtGtEq, Tt::GtGtGtEq, Tt::AndEq, Tt::OrEq, Tt::CircumflexEq,
+            Tt::EqGt,
+        ]);
+    }
+
+    #[test]
+    fn test_comments() {
+        lex_test(r#"
+            /* multiline
+            comment */
+            //// single line comment //\
+            /**a*b***/
+            test
+        "#, &[
+            Tt::Id("test")
+        ])
+    }
 
     #[bench]
     fn bench_big_lex(b: &mut test::Bencher) {

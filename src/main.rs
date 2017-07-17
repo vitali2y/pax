@@ -11,7 +11,7 @@ fn run() -> Result<(), CliError> {
     let mut contents = String::new();
     buf_reader.read_to_string(&mut contents)?;
 
-    let mut lexer = lex::Lexer::new(&file_name, &contents);
+    let lexer = lex::Lexer::new(&file_name, &contents);
     for tok in lexer {
         println!("{:?}", tok);
     }

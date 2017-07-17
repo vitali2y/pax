@@ -1,2 +1,2 @@
 a_thingThing0 +
-b
+b > c >> d >>> e >= f >>= g >>>= h >>>>= i
