@@ -26,6 +26,16 @@ pub struct Span<'a> {
     pub end: Loc,
 }
 
+impl<'a> Span<'a> {
+    pub fn new(file_name: &'a str, start: Loc, end: Loc) -> Self {
+        Span {
+            file_name,
+            start,
+            end,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tok<'a> {
     pub type: Tt,
