@@ -34,6 +34,10 @@ impl<'a> Span<'a> {
             end,
         }
     }
+
+    pub fn zero(file_name: &'a str) -> Self {
+        Span::new(file_name, Default::default(), Default::default())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
