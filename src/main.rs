@@ -12,7 +12,10 @@ fn run() -> Result<(), CliError> {
     buf_reader.read_to_string(&mut contents)?;
 
     let mut lexer = lex::Lexer::new(&file_name, &contents);
-    unimplemented!();
+    for tok in lexer {
+        println!("{:?}", tok);
+    }
+    Ok(())
 }
 
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");

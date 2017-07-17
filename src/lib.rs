@@ -1,4 +1,6 @@
 #![feature(test)]
+#![allow(unused_features)]
+
 pub mod lex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
