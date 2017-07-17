@@ -12,6 +12,16 @@ pub struct Span<'a> {
     pub end: Loc,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Tok<'a> {
+    pub type: Tt,
+    pub span: Span<'a>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Tt {
+}
+
 #[derive(Debug)]
 pub struct Lexer<'a, 'b> {
     file_name: &'a str,
