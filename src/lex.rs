@@ -5,6 +5,16 @@ pub struct Loc {
     pub col: usize,
 }
 
+impl Loc {
+    pub fn new(pos: usize, row: usize, col: usize) -> Self {
+        Loc {
+            pos,
+            row,
+            col,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Span<'a> {
     pub file_name: &'a str,
