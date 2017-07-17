@@ -69,7 +69,7 @@ pub enum Tt<'a> {
 pub struct Lexer<'a, 'b> {
     file_name: &'a str,
     stream: Stream<'b>,
-    here: Tok<'a, 'b>,
+    here: Tok<'b, 'a>,
 }
 
 #[derive(Debug)]
