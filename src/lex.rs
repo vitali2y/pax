@@ -46,6 +46,15 @@ pub struct Tok<'a> {
     pub span: Span<'a>,
 }
 
+impl<'a> Tok<'a> {
+    pub fn new(tt: Tt, span: Span<'a>) {
+        Tok {
+            tt,
+            span,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tt {
 }
