@@ -10,8 +10,10 @@ fn run() -> Result<(), CliError> {
     unimplemented!();
 }
 
+const APP_NAME: &'static str = "esparse";
+
 fn print_usage() {
-    println!("usage: esparse <file>");
+    println!("usage: {} <file>", APP_NAME);
 }
 
 enum CliError {
@@ -30,7 +32,7 @@ fn main() {
         Err(kind) => {
             match kind {
                 CliError::MissingFileName => print_usage(),
-                CliError::Io(inner) => println!("esparse: {}", inner),
+                CliError::Io(inner) => println!("{}: {}", APP_NAME, inner),
             }
             1
         }
