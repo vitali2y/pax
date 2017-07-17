@@ -2,13 +2,16 @@ extern crate esparse;
 
 use std::{env, process, io, fs};
 use std::io::prelude::*;
+use esparse::lex;
 
 fn run() -> Result<(), CliError> {
     let file_name = env::args().nth(1).ok_or(CliError::MissingFileName)?;
-    let file = fs::File::open(file_name)?;
+    let file = fs::File::open(&file_name)?;
     let mut buf_reader = io::BufReader::new(file);
     let mut contents = String::new();
     buf_reader.read_to_string(&mut contents)?;
+
+    let mut lexer = lex::Lexer::new(&file_name, &contents);
     unimplemented!();
 }
 
