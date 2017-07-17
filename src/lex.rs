@@ -5,6 +5,13 @@ pub struct Loc {
     pub col: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Span<'a> {
+    pub file_name: &'a str,
+    pub start: Loc,
+    pub end: Loc,
+}
+
 #[derive(Debug)]
 pub struct Lexer<'a, 'b> {
     file_name: &'a str,
