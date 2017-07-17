@@ -41,13 +41,13 @@ impl<'a> Span<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Tok<'a> {
-    pub tt: Tt,
-    pub span: Span<'a>,
+pub struct Tok<'a, 'b> {
+    pub tt: Tt<'a>,
+    pub span: Span<'b>,
 }
 
-impl<'a> Tok<'a> {
-    pub fn new(tt: Tt, span: Span<'a>) {
+impl<'a, 'b> Tok<'a, 'b> {
+    pub fn new(tt: Tt<'a>, span: Span<'b>) -> Self {
         Tok {
             tt,
             span,
@@ -56,7 +56,12 @@ impl<'a> Tok<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Tt {
+pub enum Tt<'a> {
+    StrLitSingle(&'a str),
+    StrLitDouble(&'a str),
+    NumLit(&'a str),
+
+    // ...
 }
 
 #[derive(Debug)]
