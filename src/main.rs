@@ -10,7 +10,7 @@ fn run() -> Result<(), ()> {
         None => {
             print_usage();
             return Err(())
-        },
+        }
     };
     unimplemented!();
 }
