@@ -30,7 +30,7 @@ fn main() {
         Err(kind) => {
             match kind {
                 CliError::MissingFileName => print_usage(),
-                CliError::Io(inner) => println!("{}", inner),
+                CliError::Io(inner) => println!("esparse: {}", inner),
             }
             1
         }
