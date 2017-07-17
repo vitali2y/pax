@@ -15,7 +15,7 @@ impl Loc {
     }
 
     pub fn zero() -> Self {
-        Loc::new(0, 0, 0)
+        Default::default()
     }
 }
 
