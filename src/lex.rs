@@ -13,6 +13,10 @@ impl Loc {
             col,
         }
     }
+
+    pub fn zero() -> Self {
+        Loc::new(0, 0, 0)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
