@@ -110,12 +110,33 @@ pub enum Tt<'s> {
     // RightBracePunctuator ::
     Rbrace,
 
-    // // NullLiteral ::
-    // Null,
+    // NullLiteral ::
+    Null,
 
-    // // BooleanLiteral ::
-    // True,
-    // False,
+    // BooleanLiteral ::
+    True,
+    False,
+
+    // Keyword ::
+    Await,
+    Break,
+    Case, Catch, Class, Const, Continue,
+    Debugger, Default, Delete, Do,
+    Else, Export, Extends,
+    Finally, For, Function,
+    If, Import, In, Instanceof,
+    New,
+    Return,
+    Super, Switch,
+    This, Throw, Try, Typeof,
+    Var, Void,
+    While, With,
+    Yield,
+
+    // // FutureReservedWord ::
+    // Enum,
+
+    // TODO strict mode future reserved words
 
     Eof,
 }
@@ -438,7 +459,9 @@ impl<'f, 's> Lexer<'f, 's> {
                     Tt::NumLitOct(_) |
                     Tt::NumLitDec(_) |
                     Tt::NumLitHex(_) |
-                    Tt::Id(_) => Tt::Slash,
+                    Tt::Id(_) |
+                    Tt::This |
+                    Tt::Super => Tt::Slash,
                     _ => {
                         // TODO /[/]/
                         loop {
@@ -2472,7 +2495,47 @@ impl<'f, 's> Lexer<'f, 's> {
                         },
                     }
                 }
-                Tt::Id(self.stream.str_from(start.pos))
+                let id = self.stream.str_from(start.pos);
+                match id {
+                    "null" => Tt::Null,
+                    "true" => Tt::True,
+                    "false" => Tt::False,
+                    "await" => Tt::Await,
+                    "break" => Tt::Break,
+                    "case" => Tt::Case,
+                    "catch" => Tt::Catch,
+                    "class" => Tt::Class,
+                    "const" => Tt::Const,
+                    "continue" => Tt::Continue,
+                    "debugger" => Tt::Debugger,
+                    "default" => Tt::Default,
+                    "delete" => Tt::Delete,
+                    "do" => Tt::Do,
+                    "else" => Tt::Else,
+                    "export" => Tt::Export,
+                    "extends" => Tt::Extends,
+                    "finally" => Tt::Finally,
+                    "for" => Tt::For,
+                    "function" => Tt::Function,
+                    "if" => Tt::If,
+                    "import" => Tt::Import,
+                    "in" => Tt::In,
+                    "instanceof" => Tt::Instanceof,
+                    "new" => Tt::New,
+                    "return" => Tt::Return,
+                    "super" => Tt::Super,
+                    "switch" => Tt::Switch,
+                    "this" => Tt::This,
+                    "throw" => Tt::Throw,
+                    "try" => Tt::Try,
+                    "typeof" => Tt::Typeof,
+                    "var" => Tt::Var,
+                    "void" => Tt::Void,
+                    "while" => Tt::While,
+                    "with" => Tt::With,
+                    "yield" => Tt::Yield,
+                    _ => Tt::Id(id),
+                }
             }
 
             _ => {
@@ -4067,6 +4130,51 @@ mod test {
     }
 
     #[test]
+    fn test_keywords() {
+        lex_test(r#"
+            null
+
+            true
+            false
+
+            await
+            break
+            case catch class const continue
+            debugger default delete do
+            else export extends
+            finally for function
+            if import in instanceof
+            new
+            return
+            super switch
+            this throw try typeof
+            var void
+            while with
+            yield
+        "#, &[
+            Tt::Null,
+
+            Tt::True,
+            Tt::False,
+
+            Tt::Await,
+            Tt::Break,
+            Tt::Case, Tt::Catch, Tt::Class, Tt::Const, Tt::Continue,
+            Tt::Debugger, Tt::Default, Tt::Delete, Tt::Do,
+            Tt::Else, Tt::Export, Tt::Extends,
+            Tt::Finally, Tt::For, Tt::Function,
+            Tt::If, Tt::Import, Tt::In, Tt::Instanceof,
+            Tt::New,
+            Tt::Return,
+            Tt::Super, Tt::Switch,
+            Tt::This, Tt::Throw, Tt::Try, Tt::Typeof,
+            Tt::Var, Tt::Void,
+            Tt::While, Tt::With,
+            Tt::Yield,
+        ])
+    }
+
+    #[test]
     fn test_punctuators() {
         lex_test(r#"
             {()[]
@@ -4471,6 +4579,22 @@ mod test {
             ;a|=/re/
             ;a^=/re/
             ;a=>/re/
+            ;await/re/
+            ;case/re/
+            ;delete/re/
+            ;export default /re/
+            ;extends/re/
+            ;in/re/
+            ;instanceof/re/
+            ;new/re/
+            ;return/re/
+            ;super/b
+            ;switch/re/
+            ;this/b
+            ;throw/re/
+            ;typeof/re/
+            ;void/re/
+            ;yield/re/
         "#, &[
             // TODO numeric literals in other bases
             Tt::Semi,
@@ -4791,6 +4915,74 @@ mod test {
             Tt::Semi,
             Tt::Id("a"),
             Tt::EqGt,
+            Tt::RegExpLit("/re/", ""),
+
+
+            Tt::Semi,
+            Tt::Await,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Case,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Delete,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Export,
+            Tt::Default,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Extends,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::In,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Instanceof,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::New,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Return,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Super,
+            Tt::Slash,
+            Tt::Id("b"),
+
+            Tt::Semi,
+            Tt::Switch,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::This,
+            Tt::Slash,
+            Tt::Id("b"),
+
+            Tt::Semi,
+            Tt::Throw,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Typeof,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Void,
+            Tt::RegExpLit("/re/", ""),
+
+            Tt::Semi,
+            Tt::Yield,
             Tt::RegExpLit("/re/", ""),
         ]);
     }
