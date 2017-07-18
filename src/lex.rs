@@ -5000,11 +5000,8 @@ mod test {
         ]);
     }
 
-    #[bench]
-    #[ignore]
-    fn bench_big_lex(b: &mut test::Bencher) {
-        // 5,013,820
-        let mut file = fs::File::open("private/big.js").unwrap();
+    fn bench_lex_file(b: &mut test::Bencher, filename: &str) {
+        let mut file = fs::File::open(filename).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
 
@@ -5016,6 +5013,18 @@ mod test {
                 }
             }
         });
+    }
+
+    #[bench]
+    fn bench_angular_lex(b: &mut test::Bencher) {
+        bench_lex_file(b, "data/angular-1.2.5.js");
+    }
+
+    #[bench]
+    #[ignore]
+    fn bench_big_lex(b: &mut test::Bencher) {
+        // 5,013,820
+        bench_lex_file(b, "private/big.js");
     }
 
     #[bench]
