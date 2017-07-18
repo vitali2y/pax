@@ -463,7 +463,6 @@ impl<'f, 's> Lexer<'f, 's> {
                     Tt::This |
                     Tt::Super => Tt::Slash,
                     _ => {
-                        // TODO /[/]/
                         loop {
                             match self.stream.advance() {
                                 Some('\\') => {
@@ -4596,7 +4595,6 @@ mod test {
             ;void/re/
             ;yield/re/
         "#, &[
-            // TODO numeric literals in other bases
             Tt::Semi,
             Tt::RegExpLit("/re/", ""),
             Tt::Plus,
