@@ -109,7 +109,13 @@ pub enum Tt<'s> {
 
     // RightBracePunctuator ::
     Rbrace,
-    // ...
+
+    // // NullLiteral ::
+    // Null,
+
+    // // BooleanLiteral ::
+    // True,
+    // False,
 
     Eof,
 }
@@ -119,15 +125,8 @@ pub struct Lexer<'f, 's> {
     file_name: &'f str,
     stream: Stream<'s>,
     here: Tok<'f, 's>,
-    mode: LexMode,
     frame: LexFrame,
     stack: Vec<LexFrame>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum LexMode {
-    RegExp,
-    Slash,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -162,7 +161,6 @@ impl<'f, 's> Lexer<'f, 's> {
             file_name,
             stream: Stream::new(input),
             here: Tok::new(Tt::Eof, Span::zero(file_name)),
-            mode: LexMode::RegExp,
             frame: LexFrame::Outer,
             stack: Vec::new(),
         };
@@ -191,7 +189,6 @@ impl<'f, 's> Lexer<'f, 's> {
             }
         };
 
-        let mut new_mode = LexMode::RegExp;
         let tt = match here {
             '{' => {
                 self.stack.push(mem::replace(&mut self.frame, LexFrame::Brace));
@@ -199,12 +196,10 @@ impl<'f, 's> Lexer<'f, 's> {
             }
             '(' => Tt::Lparen,
             ')' => {
-                new_mode = LexMode::Slash;
                 Tt::Rparen
             },
             '[' => Tt::Lbracket,
             ']' => {
-                new_mode = LexMode::Slash;
                 Tt::Rbracket
             },
             ';' => Tt::Semi,
@@ -305,7 +300,6 @@ impl<'f, 's> Lexer<'f, 's> {
                                         Some(f) => f,
                                         None => unreachable!(),
                                     };
-                                    new_mode = LexMode::Slash;
                                     result = Tt::TemplateEnd(self.stream.str_from(start.pos));
                                     break
                                 }
@@ -350,7 +344,6 @@ impl<'f, 's> Lexer<'f, 's> {
                             }
                         }
                         Some('`') => {
-                            new_mode = LexMode::Slash;
                             result = Tt::TemplateNoSub(self.stream.str_from(start.pos));
                             break
                         }
@@ -399,7 +392,6 @@ impl<'f, 's> Lexer<'f, 's> {
                         }
                     }
                 }
-                new_mode = LexMode::Slash;
                 Tt::StrLitDbl(self.stream.str_from(start.pos))
             }
             '\'' => {
@@ -430,14 +422,24 @@ impl<'f, 's> Lexer<'f, 's> {
                         }
                     }
                 }
-                new_mode = LexMode::Slash;
                 Tt::StrLitSgl(self.stream.str_from(start.pos))
             }
 
             '/' => {
-                match self.mode {
-                    LexMode::Slash => Tt::Slash,
-                    LexMode::RegExp => {
+                match self.here.tt {
+                    Tt::Rparen |
+                    Tt::Rbracket |
+                    Tt::TemplateEnd(_) |
+                    Tt::TemplateNoSub(_) |
+                    Tt::StrLitSgl(_) |
+                    Tt::StrLitDbl(_) |
+                    Tt::RegExpLit(_, _) |
+                    Tt::NumLitBin(_) |
+                    Tt::NumLitOct(_) |
+                    Tt::NumLitDec(_) |
+                    Tt::NumLitHex(_) |
+                    Tt::Id(_) => Tt::Slash,
+                    _ => {
                         // TODO /[/]/
                         loop {
                             match self.stream.advance() {
@@ -499,7 +501,6 @@ impl<'f, 's> Lexer<'f, 's> {
                         let flags_start = self.stream.loc().pos;
                         self.stream.skip_id_continue_chars();
                         let flags = self.stream.str_from(flags_start);
-                        new_mode = LexMode::Slash;
                         Tt::RegExpLit(source, flags)
                     }
                 }
@@ -532,7 +533,6 @@ impl<'f, 's> Lexer<'f, 's> {
                             ),
                             _ => {},
                         );
-                        new_mode = LexMode::Slash;
                         Tt::NumLitDec(self.stream.str_from(start.pos))
                     }
                     Some(_) | None => {
@@ -540,52 +540,48 @@ impl<'f, 's> Lexer<'f, 's> {
                     }
                 }
             }
-            '0' => {
-                new_mode = LexMode::Slash;
-                eat!(self.stream,
-                    'b' | 'B' => {
-                        self.stream.skip_bin_digits();
-                        Tt::NumLitBin(self.stream.str_from(start.pos))
-                    },
-                    'o' | 'O' => {
-                        self.stream.skip_oct_digits();
-                        Tt::NumLitOct(self.stream.str_from(start.pos))
-                    },
-                    'x' | 'X' => {
-                        self.stream.skip_hex_digits();
-                        Tt::NumLitHex(self.stream.str_from(start.pos))
-                    },
-                    '.' => {
-                        self.stream.skip_dec_digits();
-                        eat!(self.stream,
-                            'e' | 'E' => eat!(self.stream,
-                                '-' | '+' | '0'...'9' => {
-                                    self.stream.skip_dec_digits();
-                                    Tt::NumLitDec(self.stream.str_from(start.pos))
-                                },
-                                _ => {
-                                    panic!("expected exponent")
-                                },
-                            ),
-                            _ => {
+            '0' => eat!(self.stream,
+                'b' | 'B' => {
+                    self.stream.skip_bin_digits();
+                    Tt::NumLitBin(self.stream.str_from(start.pos))
+                },
+                'o' | 'O' => {
+                    self.stream.skip_oct_digits();
+                    Tt::NumLitOct(self.stream.str_from(start.pos))
+                },
+                'x' | 'X' => {
+                    self.stream.skip_hex_digits();
+                    Tt::NumLitHex(self.stream.str_from(start.pos))
+                },
+                '.' => {
+                    self.stream.skip_dec_digits();
+                    eat!(self.stream,
+                        'e' | 'E' => eat!(self.stream,
+                            '-' | '+' | '0'...'9' => {
+                                self.stream.skip_dec_digits();
                                 Tt::NumLitDec(self.stream.str_from(start.pos))
                             },
-                        )
-                    },
-                    'e' | 'E' => eat!(self.stream,
-                        '-' | '+' | '0'...'9' => {
-                            self.stream.skip_dec_digits();
+                            _ => {
+                                panic!("expected exponent")
+                            },
+                        ),
+                        _ => {
                             Tt::NumLitDec(self.stream.str_from(start.pos))
                         },
-                        _ => {
-                            panic!("expected exponent")
-                        },
-                    ),
-                    _ => Tt::NumLitDec(self.stream.str_from(start.pos)),
-                )
-            }
+                    )
+                },
+                'e' | 'E' => eat!(self.stream,
+                    '-' | '+' | '0'...'9' => {
+                        self.stream.skip_dec_digits();
+                        Tt::NumLitDec(self.stream.str_from(start.pos))
+                    },
+                    _ => {
+                        panic!("expected exponent")
+                    },
+                ),
+                _ => Tt::NumLitDec(self.stream.str_from(start.pos)),
+            ),
             '1'...'9' => {
-                new_mode = LexMode::Slash;
                 self.stream.skip_dec_digits();
                 eat!(self.stream,
                     '.' => {
@@ -2476,7 +2472,6 @@ impl<'f, 's> Lexer<'f, 's> {
                         },
                     }
                 }
-                new_mode = LexMode::Slash;
                 Tt::Id(self.stream.str_from(start.pos))
             }
 
@@ -2484,7 +2479,6 @@ impl<'f, 's> Lexer<'f, 's> {
                 panic!("unexpected {} @ {}:{} (col {})", here, self.file_name, start.row + 1, start.col + 1)
             },
         };
-        self.mode = new_mode;
         Tok {
             tt,
             span: Span::new(self.file_name, start, self.stream.loc()),
