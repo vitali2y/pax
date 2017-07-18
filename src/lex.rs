@@ -194,6 +194,7 @@ impl<'f, 's> Lexer<'f, 's> {
         mem::replace(&mut self.here, tok)
     }
 
+    #[inline(always)]
     fn read_tok(&mut self) -> Tok<'f, 's> {
         let (ws_before, nl_before) = self.stream.skip_ws();
 
