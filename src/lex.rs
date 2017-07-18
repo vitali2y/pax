@@ -128,14 +128,20 @@ pub enum LexState {
 }
 
 macro_rules! eat {
-    ($stream:expr, $($p:expr => $e:expr ,)* _ => $else:expr $(,)*) => {
+    (@collect $stream:expr, { $($($($p:tt)...+)|+ => $e:expr ,)* }, _ => $else:expr $(,)*) => {
         match $stream.here() {
-            $(Some($p) => {
+            $($(Some($($p)...+))|+ => {
                 $stream.advance();
                 $e
             })*
             _ => $else
         }
+    };
+    (@collect $stream:expr, { $($($($p:tt)...+)|+ => $e:expr ,)* }, $($($q:tt)...+)|+ => $f:expr, $($t:tt)+) => {
+        eat!(@collect $stream, { $($($($p)...+)|+ => $e ,)* $($($q)...+)|+ => $f, }, $($t)+)
+    };
+    ($stream:expr, $($t:tt)+) => {
+        eat!(@collect $stream, {}, $($t)+)
     };
 }
 
@@ -263,6 +269,139 @@ impl<'f, 's> Lexer<'f, 's> {
             '~' => Tt::Tilde,
             '?' => Tt::Question,
             ':' => Tt::Colon,
+
+            '"' => {
+                loop {
+                    match self.stream.advance() {
+                        Some('\\') => {
+                            // skip char after \
+                            match self.stream.advance() {
+                                Some('\u{000D}') => {
+                                    self.stream.eat('\u{000A}');
+                                }
+                                _ => {}
+                            }
+                        }
+                        Some('"') => {
+                            break
+                        }
+                          Some('\u{000A}') // LINE FEED (LF)          <LF>
+                        | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
+                        | Some('\u{2028}') // LINE SEPARATOR          <LS>
+                        | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                        => {
+                            panic!("unterminated string literal")
+                        }
+                        Some(_) => {}
+                        None => {
+                            panic!("unterminated string literal")
+                        }
+                    }
+                }
+                Tt::StrLitDbl(self.stream.str_from(start.pos))
+            }
+            '\'' => {
+                loop {
+                    match self.stream.advance() {
+                        Some('\\') => {
+                            // skip char after \
+                            match self.stream.advance() {
+                                Some('\u{000D}') => {
+                                    self.stream.eat('\u{000A}');
+                                }
+                                _ => {}
+                            }
+                        }
+                        Some('\'') => {
+                            break
+                        }
+                          Some('\u{000A}') // LINE FEED (LF)          <LF>
+                        | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
+                        | Some('\u{2028}') // LINE SEPARATOR          <LS>
+                        | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                        => {
+                            panic!("unterminated string literal")
+                        }
+                        Some(_) => {}
+                        None => {
+                            panic!("unterminated string literal")
+                        }
+                    }
+                }
+                Tt::StrLitSgl(self.stream.str_from(start.pos))
+            }
+
+            // TODO error if following char is IdentStart or DecimalDigit
+            '0' => eat!(self.stream,
+                'b' | 'B' => {
+                    self.stream.skip_bin_digits();
+                    Tt::NumLitBin(self.stream.str_from(start.pos))
+                },
+                'o' | 'O' => {
+                    self.stream.skip_oct_digits();
+                    Tt::NumLitOct(self.stream.str_from(start.pos))
+                },
+                'x' | 'X' => {
+                    self.stream.skip_hex_digits();
+                    Tt::NumLitHex(self.stream.str_from(start.pos))
+                },
+                '.' => {
+                    self.stream.skip_dec_digits();
+                    eat!(self.stream,
+                        'e' | 'E' => eat!(self.stream,
+                            '-' | '+' | '0'...'9' => {
+                                self.stream.skip_dec_digits();
+                                Tt::NumLitDec(self.stream.str_from(start.pos))
+                            },
+                            _ => {
+                                panic!("expected exponent")
+                            },
+                        ),
+                        _ => {
+                            Tt::NumLitDec(self.stream.str_from(start.pos))
+                        },
+                    )
+                },
+                'e' | 'E' => eat!(self.stream,
+                    '-' | '+' | '0'...'9' => {
+                        self.stream.skip_dec_digits();
+                        Tt::NumLitDec(self.stream.str_from(start.pos))
+                    },
+                    _ => {
+                        panic!("expected exponent")
+                    },
+                ),
+                _ => Tt::NumLitDec(self.stream.str_from(start.pos)),
+            ),
+            '1'...'9' => {
+                self.stream.skip_dec_digits();
+                eat!(self.stream,
+                    '.' => {
+                        self.stream.skip_dec_digits();
+                        eat!(self.stream,
+                            'e' | 'E' => eat!(self.stream,
+                                '-' | '+' | '0'...'9' => {
+                                    self.stream.skip_dec_digits();
+                                },
+                                _ => {
+                                    panic!("expected exponent")
+                                },
+                            ),
+                            _ => {},
+                        );
+                    },
+                    'e' | 'E' => eat!(self.stream,
+                        '-' | '+' | '0'...'9' => {
+                            self.stream.skip_dec_digits();
+                        },
+                        _ => {
+                            panic!("expected exponent")
+                        },
+                    ),
+                    _ => {},
+                );
+                Tt::NumLitDec(self.stream.str_from(start.pos))
+            }
 
             // TODO '\\' |
               '$'
@@ -2230,6 +2369,54 @@ impl<'s> Stream<'s> {
         }
     }
 
+    // #[inline]
+    // pub fn skip_str_dbl_chars(&mut self) {
+    //     self.skip_while(|c| match c {
+    //         '\\' | '"' => false,
+    //         _ => true,
+    //     });
+    // }
+
+    // #[inline]
+    // pub fn skip_str_sgl_chars(&mut self) {
+    //     self.skip_while(|c| match c {
+    //         '\\' | '\'' => false,
+    //         _ => true,
+    //     });
+    // }
+
+    #[inline]
+    pub fn skip_bin_digits(&mut self) {
+        self.skip_while(|c| match c {
+            '0'...'1' => true,
+            _ => false,
+        });
+    }
+
+    #[inline]
+    pub fn skip_oct_digits(&mut self) {
+        self.skip_while(|c| match c {
+            '0'...'7' => true,
+            _ => false,
+        });
+    }
+
+    #[inline]
+    pub fn skip_dec_digits(&mut self) {
+        self.skip_while(|c| match c {
+            '0'...'9' => true,
+            _ => false,
+        });
+    }
+
+    #[inline]
+    pub fn skip_hex_digits(&mut self) {
+        self.skip_while(|c| match c {
+            '0'...'9' | 'a'...'f' | 'A'...'F' => true,
+            _ => false,
+        });
+    }
+
     pub fn skip_ws(&mut self) -> (&'s str, bool) {
         let start = self.loc;
         loop {
@@ -2242,10 +2429,10 @@ impl<'s> Stream<'s> {
                     | '\u{00A0}' // NO-BREAK SPACE
                     | '\u{FEFF}' // ZERO WIDTH NO-BREAK SPACE
 
-                    | '\u{000A}' // LINE FEED (LF)  <LF>
+                    | '\u{000A}' // LINE FEED (LF)          <LF>
                     | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
-                    | '\u{2028}' // LINE SEPARATOR  <LS>
-                    | '\u{2029}' // PARAGRAPH SEPARATOR <PS>
+                    | '\u{2028}' // LINE SEPARATOR          <LS>
+                    | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
 
                     // Zs (Space_Separator):
                         | '\u{1680}' // OGHAM SPACE MARK
@@ -2266,10 +2453,10 @@ impl<'s> Stream<'s> {
                     => {
                         self.advance();
                     }
-                    //   '\u{000A}' // LINE FEED (LF)  <LF>
-                    // | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
-                    // | '\u{2028}' // LINE SEPARATOR  <LS>
-                    // | '\u{2029}' // PARAGRAPH SEPARATOR <PS>
+                    //   '\u{000A}' // LINE FEED (LF)       <LF>
+                    // | '\u{000D}' // CARRIAGE RETURN (CR) <CR>
+                    // | '\u{2028}' // LINE SEPARATOR       <LS>
+                    // | '\u{2029}' // PARAGRAPH SEPARATOR  <PS>
                     // => {
                     //     self.advance();
                     //     nl = true;
@@ -2312,10 +2499,10 @@ impl<'s> Stream<'s> {
                             self.advance();
                             self.advance();
                             self.skip_while(|c| match c {
-                                  '\u{000A}' // LINE FEED (LF)  <LF>
+                                  '\u{000A}' // LINE FEED (LF)          <LF>
                                 | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
-                                | '\u{2028}' // LINE SEPARATOR  <LS>
-                                | '\u{2029}' // PARAGRAPH SEPARATOR <PS>
+                                | '\u{2028}' // LINE SEPARATOR          <LS>
+                                | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
                                 => false,
                                 _ => true,
                             });
@@ -2365,10 +2552,10 @@ impl<'s> Stream<'s> {
     pub fn advance(&mut self) -> Option<char> {
         match self.here {
             // TODO count both \r and \r\n as one newline
-              Some('\u{000A}') // LINE FEED (LF)  <LF>
-            // | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
-            | Some('\u{2028}') // LINE SEPARATOR  <LS>
-            | Some('\u{2029}') // PARAGRAPH SEPARATOR <PS>
+              Some('\u{000A}') // LINE FEED (LF)            <LF>
+            // | Some('\u{000D}') // CARRIAGE RETURN (CR)   <CR>
+            | Some('\u{2028}') // LINE SEPARATOR            <LS>
+            | Some('\u{2029}') // PARAGRAPH SEPARATOR       <PS>
             => {
                 self.loc.col = 0;
                 self.loc.row += 1;
@@ -2470,6 +2657,11 @@ mod test {
         assert_eq!(Tt::Eof, lexer.advance().tt);
     }
 
+    fn lex_test_invalid(_source: &str) {
+        // let mut lexer = Lexer::new("<input>", source);
+        // TODO
+    }
+
     #[test]
     fn test_punctuators() {
         lex_test(r#"
@@ -2513,10 +2705,175 @@ mod test {
             test
         "#, &[
             Tt::Id("test")
-        ])
+        ]);
+    }
+
+    #[test]
+    fn test_dec_lits() {
+        lex_test(r#"
+            // DecimalLiteral
+            0
+            123456789
+            0.
+            123.
+            0.012300
+            123.045600
+            0.123e0
+            123.456e0
+            0.123e01
+            123.456e02
+            0.123e+123
+            123.456e+234
+            0.123e-123
+            123.456e-234
+            0e0
+            123e0
+            0e01
+            123e02
+            0e+123
+            123e+234
+            0e-123
+            123e-234
+        "#, &[
+            Tt::NumLitDec("0"),
+            Tt::NumLitDec("123456789"),
+            Tt::NumLitDec("0."),
+            Tt::NumLitDec("123."),
+            Tt::NumLitDec("0.012300"),
+            Tt::NumLitDec("123.045600"),
+            Tt::NumLitDec("0.123e0"),
+            Tt::NumLitDec("123.456e0"),
+            Tt::NumLitDec("0.123e01"),
+            Tt::NumLitDec("123.456e02"),
+            Tt::NumLitDec("0.123e+123"),
+            Tt::NumLitDec("123.456e+234"),
+            Tt::NumLitDec("0.123e-123"),
+            Tt::NumLitDec("123.456e-234"),
+            Tt::NumLitDec("0e0"),
+            Tt::NumLitDec("123e0"),
+            Tt::NumLitDec("0e01"),
+            Tt::NumLitDec("123e02"),
+            Tt::NumLitDec("0e+123"),
+            Tt::NumLitDec("123e+234"),
+            Tt::NumLitDec("0e-123"),
+            Tt::NumLitDec("123e-234"),
+        ]);
+    }
+
+    #[test]
+    fn test_hex_lits() {
+        lex_test(r#"
+            // HexIntegerLiteral
+            0x0
+            0x1
+            0xa
+            0xF
+            0xABCDEF0123abcdef456789
+            0X0
+            0X1
+            0Xa
+            0XF
+            0XABCDEF0123abcdef456789
+        "#, &[
+            Tt::NumLitHex("0x0"),
+            Tt::NumLitHex("0x1"),
+            Tt::NumLitHex("0xa"),
+            Tt::NumLitHex("0xF"),
+            Tt::NumLitHex("0xABCDEF0123abcdef456789"),
+            Tt::NumLitHex("0X0"),
+            Tt::NumLitHex("0X1"),
+            Tt::NumLitHex("0Xa"),
+            Tt::NumLitHex("0XF"),
+            Tt::NumLitHex("0XABCDEF0123abcdef456789"),
+        ]);
+    }
+
+    #[test]
+    fn test_oct_lits() {
+        lex_test(r#"
+            // OctIntegerLiteral
+            0o0
+            0o1
+            0o7
+            0o01234567
+            0O0
+            0O1
+            0O7
+            0O01234567
+        "#, &[
+            Tt::NumLitOct("0o0"),
+            Tt::NumLitOct("0o1"),
+            Tt::NumLitOct("0o7"),
+            Tt::NumLitOct("0o01234567"),
+            Tt::NumLitOct("0O0"),
+            Tt::NumLitOct("0O1"),
+            Tt::NumLitOct("0O7"),
+            Tt::NumLitOct("0O01234567"),
+        ]);
+    }
+
+    #[test]
+    fn test_bin_lits() {
+        lex_test(r#"
+            // BinIntegerLiteral
+            0b0
+            0b1
+            0b10101000001
+            0B0
+            0B1
+            0B10101000001
+        "#, &[
+            Tt::NumLitBin("0b0"),
+            Tt::NumLitBin("0b1"),
+            Tt::NumLitBin("0b10101000001"),
+            Tt::NumLitBin("0B0"),
+            Tt::NumLitBin("0B1"),
+            Tt::NumLitBin("0B10101000001"),
+        ]);
+    }
+
+    #[test]
+    fn test_str_lits() {
+        lex_test(r#"
+            ""
+            "a"
+            "'"
+            "\"\\\"\\\\"
+            ''
+            'a'
+            '"'
+            '\'\\\'\\\\'
+        "#, &[
+            Tt::StrLitDbl(r#""""#),
+            Tt::StrLitDbl(r#""a""#),
+            Tt::StrLitDbl(r#""'""#),
+            Tt::StrLitDbl(r#""\"\\\"\\\\""#),
+            Tt::StrLitSgl(r#"''"#),
+            Tt::StrLitSgl(r#"'a'"#),
+            Tt::StrLitSgl(r#"'"'"#),
+            Tt::StrLitSgl(r#"'\'\\\'\\\\'"#),
+        ]);
+    }
+
+    #[test]
+    fn test_str_lits_continuation() {
+        lex_test(" \"a\\\u{000A}b\" ", &[ Tt::StrLitDbl("\"a\\\u{000A}b\"") ]);
+        lex_test(" \"a\\\u{000D}b\" ", &[ Tt::StrLitDbl("\"a\\\u{000D}b\"") ]);
+        lex_test(" \"a\\\u{000D}\u{000A}b\" ", &[ Tt::StrLitDbl("\"a\\\u{000D}\u{000A}b\"") ]);
+        lex_test(" \"a\\\u{2028}b\" ", &[ Tt::StrLitDbl("\"a\\\u{2028}b\"") ]);
+        lex_test(" \"a\\\u{2029}b\" ", &[ Tt::StrLitDbl("\"a\\\u{2029}b\"") ]);
+    }
+
+    #[test]
+    fn test_str_lits_invalid() {
+        lex_test_invalid(" \"\u{000A}\" ");
+        lex_test_invalid(" \"\u{000D}\" ");
+        lex_test_invalid(" \"\u{2028}\" ");
+        lex_test_invalid(" \"\u{2029}\" ");
     }
 
     #[bench]
+    #[ignore]
     fn bench_big_lex(b: &mut test::Bencher) {
         // 5013820
         let mut file = fs::File::open("private/big.js").unwrap();
@@ -2534,6 +2891,7 @@ mod test {
     }
 
     #[bench]
+    #[ignore]
     fn bench_big_stream(b: &mut test::Bencher) {
         // 5013820
         let mut file = fs::File::open("private/big.js").unwrap();
