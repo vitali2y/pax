@@ -461,7 +461,10 @@ impl<'f, 's> Lexer<'f, 's> {
                     Tt::NumLitHex(_) |
                     Tt::Id(_) |
                     Tt::This |
-                    Tt::Super => Tt::Slash,
+                    Tt::Super => eat!(self.stream,
+                        '=' => Tt::SlashEq,
+                        _ => Tt::Slash,
+                    ),
                     _ => {
                         loop {
                             match self.stream.advance() {
@@ -4189,6 +4192,9 @@ mod test {
             ?:
             =+=-=*=%=**=<<=>>=>>>=&=|=^=
             =>
+            }
+            a/b
+            c/=d
         "#, &[
             Tt::Lbrace, Tt::Lparen, Tt::Rparen, Tt::Lbracket, Tt::Rbracket,
             Tt::DotDotDot, Tt::Dot, Tt::Semi, Tt::Comma,
@@ -4203,6 +4209,15 @@ mod test {
             Tt::Question, Tt::Colon,
             Tt::Eq, Tt::PlusEq, Tt::MinusEq, Tt::StarEq, Tt::PercentEq, Tt::StarStarEq, Tt::LtLtEq, Tt::GtGtEq, Tt::GtGtGtEq, Tt::AndEq, Tt::OrEq, Tt::CircumflexEq,
             Tt::EqGt,
+            Tt::Rbrace,
+
+            Tt::Id("a"),
+            Tt::Slash,
+            Tt::Id("b"),
+
+            Tt::Id("c"),
+            Tt::SlashEq,
+            Tt::Id("d"),
         ]);
     }
 
@@ -4988,7 +5003,7 @@ mod test {
     #[bench]
     #[ignore]
     fn bench_big_lex(b: &mut test::Bencher) {
-        // 5013820
+        // 5,013,820
         let mut file = fs::File::open("private/big.js").unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
