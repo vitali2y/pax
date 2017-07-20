@@ -3886,6 +3886,7 @@ impl<'s> Stream<'s> {
         })
     }
 
+    #[inline]
     pub fn skip_ws(&mut self) -> (&'s str, bool) {
         let start = self.loc;
         loop {
