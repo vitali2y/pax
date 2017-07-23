@@ -1,4 +1,6 @@
 use std::{char, mem};
+use std::borrow::Cow;
+use memchr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Loc {
@@ -141,6 +143,112 @@ pub enum Tt<'s> {
     Eof,
 }
 
+// TODO better errors
+pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
+    let mut result = String::new();
+    let range = &source[1..source.len()-1]; // strip quotation marks
+    let bytes = range.as_bytes();
+
+    let len = range.len();
+    let mut last_pos = 0;
+    let mut got_bs = false;
+    for bs_pos in memchr::Memchr::new('\\' as u8, bytes) {
+        got_bs = true;
+        result.push_str(&range[last_pos..bs_pos]);
+        let esc_pos = bs_pos + 1;
+        if esc_pos >= len {
+            panic!("parse_str_lit got '\\' at end of string");
+        }
+        last_pos = esc_pos + 1;
+        match bytes[esc_pos] as char {
+            '0' => result.push_str("\0"),
+            'b' => result.push_str("\u{0008}"),
+            't' => result.push_str("\u{0009}"),
+            'n' => result.push_str("\u{000A}"),
+            'v' => result.push_str("\u{000B}"),
+            'f' => result.push_str("\u{000C}"),
+            'r' => result.push_str("\u{000D}"),
+
+            'x' => {
+                let end_pos = last_pos + 2;
+                if end_pos > len {
+                    return Err(ParseStrLitError::InvalidEscape)
+                }
+
+                let hex = &range[last_pos..end_pos];
+                let code_point = u8::from_str_radix(hex, 16)
+                .map_err(|_| ParseStrLitError::InvalidEscape)?;
+                result.push(code_point as char);
+
+                last_pos = end_pos;
+            }
+            'u' => {
+                match bytes.get(last_pos).map(|&b| b as char) {
+                    Some('{') => {
+                        let l_pos = last_pos + 1;
+                        let r_pos = memchr::memchr('}' as u8, &bytes[l_pos..])
+                        .ok_or(ParseStrLitError::InvalidEscape)?;
+
+                        let hex = &range[l_pos..r_pos];
+                        let code_point = u32::from_str_radix(hex, 16)
+                        .map_err(|_| ParseStrLitError::InvalidEscape)?;
+
+                        let ch = char::from_u32(code_point)
+                        .ok_or(ParseStrLitError::InvalidEscape)?;
+                        result.push(ch);
+
+                        last_pos = r_pos + 1;
+                    }
+                    _ => {
+                        let end_pos = last_pos + 4;
+                        if end_pos > len {
+                            return Err(ParseStrLitError::InvalidEscape)
+                        }
+
+                        let hex = &range[last_pos..end_pos];
+                        let code_point = u32::from_str_radix(hex, 16)
+                        .map_err(|_| ParseStrLitError::InvalidEscape)?;
+
+                        let ch = char::from_u32(code_point)
+                        .ok_or(ParseStrLitError::InvalidEscape)?;
+                        result.push(ch);
+
+                        last_pos = end_pos;
+                    }
+                }
+            }
+
+            // ignore <cr> and <cr><lf>
+            '\u{000D}' => match bytes.get(last_pos).map(|&b| b as char) {
+                Some('\u{000A}') => last_pos += 1,
+                _ => {}
+            }
+            // ignore line terminators
+            '\u{000A}' |
+            '\u{2028}' |
+            '\u{2029}' => {}
+
+            // TODO legacy octal
+            // '1'...'9' => unimplemented!()
+
+            // c @ '\'' |
+            // c @ '\\' |
+            // c @ '"' |
+            c => result.push(c),
+        }
+    }
+    Ok(if got_bs {
+        Cow::from(result)
+    } else {
+        Cow::from(range)
+    })
+}
+
+#[derive(Debug)]
+pub enum ParseStrLitError {
+    InvalidEscape,
+}
+
 #[derive(Debug)]
 pub struct Lexer<'f, 's> {
     file_name: &'f str,
@@ -187,6 +295,11 @@ impl<'f, 's> Lexer<'f, 's> {
         };
         lexer.advance();
         lexer
+    }
+
+    #[inline]
+    pub fn here(&self) -> Tok<'f, 's> {
+        self.here
     }
 
     pub fn advance(&mut self) -> Tok<'f, 's> {

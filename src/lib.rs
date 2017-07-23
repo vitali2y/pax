@@ -1,6 +1,8 @@
 #![feature(test)]
 #![allow(unused_features)]
 
+extern crate memchr;
+
 pub mod lex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

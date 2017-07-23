@@ -5,3 +5,7 @@ authors = ["Nathan"]
 
 [dependencies]
 esparse = { path = ".." }
+crossbeam = "0.2"
+num_cpus = "1.6"
+matches = "0.1"
+json = "0.11"
