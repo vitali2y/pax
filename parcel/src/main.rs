@@ -90,14 +90,14 @@ impl Writer {
         modules.sort_by(|&(ref f, _), &(ref g, _)| f.cmp(g));
 
         for (file, info) in modules {
-            let id = Writer::name_path(&file);
+            let id = Self::name_path(&file);
             let prefix = if matches!(file.extension(), Some(s) if s == ".json") {
                 "module.exports="
             } else {
                 ""
             };
-            let deps = Writer::stringify_deps(&info.deps);
-            let filename = Writer::js_path(&file);
+            let deps = Self::stringify_deps(&info.deps);
+            let filename = Self::js_path(&file);
 
             write!(w,
                 "\n  Parcel.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require) {{{prefix}\n",
@@ -109,11 +109,11 @@ impl Writer {
             w.write(info.source.as_bytes())?;
             write!(w, "}}")?;
         }
-        // const main = this.namePath(this.main)
-        // yield `\n  Parcel.main = ${main}; Parcel.makeRequire(null)()`
-        // yield `\n  if (typeof module !== 'undefined') module.exports = Parcel.main.module && Parcel.main.module.exports`
-        // yield JS_END
-        // if (end) yield end
+        let main = Self::name_path(&self.entry_point);
+        write!(w,
+            "\n  Parcel.main = {main}; Parcel.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Parcel.main.module && Parcel.main.module.exports",
+            main = main,
+        )?;
         w.write(TAIL_JS.as_bytes())?;
         Ok(())
     }
