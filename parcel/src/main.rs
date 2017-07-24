@@ -8,7 +8,7 @@ extern crate base64;
 #[macro_use]
 extern crate matches;
 
-use std::{env, process, io, fs, thread};
+use std::{env, process, io, fs, thread, time, iter};
 use std::io::prelude::*;
 use std::fmt::Write;
 use std::path::{self, PathBuf, Path, Component};
@@ -20,6 +20,7 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::ffi::OsString;
 use crossbeam::sync::SegQueue;
+use notify::Watcher;
 
 use esparse::lex;
 
@@ -650,7 +651,52 @@ fn run() -> Result<(), CliError> {
         _ => panic!("non-normal entry point module"),
     };
 
-    bundle(&entry_point, &output, &map_output).map(|_| ())
+    if watch {
+        let (tx, rx) = mpsc::channel();
+        let debounce_dur = time::Duration::from_millis(5);
+        let mut watcher = notify::raw_watcher(tx.clone())?;
+
+        {
+            let /*mut */modules = bundle(&entry_point, &output, &map_output)?;
+            for path in modules.keys() {
+                watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+            }
+        }
+
+        eprintln!("ready");
+        loop {
+            eprintln!("wait");
+            let first_event = rx.recv().expect("notify::watcher disconnected");
+            thread::sleep(debounce_dur);
+            for event in iter::once(first_event).chain(rx.try_iter()) {
+                let _op = event.op?;
+                // match event {
+                //     notify::DebouncedEvent::Error(error, _) => return Err(From::from(error)),
+                //     _ => {}
+                // }
+            }
+
+            let start_inst = time::Instant::now();
+            let new_modules = bundle(&entry_point, &output, &map_output)?;
+            let elapsed = start_inst.elapsed();
+            let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
+
+            eprintln!("generate {output} in {ms} ms",
+                output = output,
+                ms = ms);
+
+            // for path in modules.keys() {
+            //     watcher.unwatch(path)?;
+            // }
+            watcher = notify::raw_watcher(tx.clone())?;
+            for path in new_modules.keys() {
+                watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+            }
+            // modules = new_modules;
+        }
+    } else {
+        bundle(&entry_point, &output, &map_output).map(|_| ())
+    }
 }
 
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -711,6 +757,7 @@ enum CliError {
 
     Io(io::Error),
     Json(json::Error),
+    Notify(notify::Error),
     Box(Box<Any + Send + 'static>),
 }
 impl From<io::Error> for CliError {
@@ -721,6 +768,11 @@ impl From<io::Error> for CliError {
 impl From<json::Error> for CliError {
     fn from(inner: json::Error) -> CliError {
         CliError::Json(inner)
+    }
+}
+impl From<notify::Error> for CliError {
+    fn from(inner: notify::Error) -> CliError {
+        CliError::Notify(inner)
     }
 }
 impl From<Box<Any + Send + 'static>> for CliError {
@@ -748,6 +800,7 @@ fn main() {
 
                 CliError::Io(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Json(inner) => println!("{}: {}", APP_NAME, inner),
+                CliError::Notify(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Box(inner) => println!("{}: {:?}", APP_NAME, inner),
             }
             1
