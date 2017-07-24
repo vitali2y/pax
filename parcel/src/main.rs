@@ -506,7 +506,7 @@ impl Worker {
         while let Some(work) = self.get_work() {
             self.tx.send(match work {
                 Work::ResolveMain { dir, name } => {
-                    self.resolve(&dir, &name, true)
+                    Self::resolve(&dir, &name, true)
                     .map(|resolved| match resolved {
                         Resolved::Normal(resolved) => {
                             WorkDone::ResolveMain {
@@ -517,7 +517,7 @@ impl Worker {
                     })
                 }
                 Work::Resolve { context, name } => {
-                    self.resolve(&context, &name, false)
+                    Self::resolve(&context, &name, false)
                     .map(|resolved| WorkDone::Resolve {
                         context,
                         name,
@@ -525,7 +525,7 @@ impl Worker {
                     })
                 }
                 Work::Include { module } => {
-                    self.include(&module)
+                    Self::include(&module)
                     .map(|info| WorkDone::Include {
                         module,
                         info,
@@ -535,7 +535,7 @@ impl Worker {
         }
     }
 
-    fn resolve(&self, context: &Path, name: &str, is_main: bool) -> Result<Resolved, CliError> {
+    fn resolve(context: &Path, name: &str, is_main: bool) -> Result<Resolved, CliError> {
         // match name.chars().next() {
         match name.as_bytes().get(0).map(|&b| b as char) {
             None => Err(CliError::EmptyModuleName {
@@ -543,7 +543,7 @@ impl Worker {
             }),
             Some('/') => {
                 Ok(Resolved::Normal(
-                    self.resolve_path_or_module(PathBuf::from(name))?.ok_or_else(|| {
+                    Self::resolve_path_or_module(PathBuf::from(name))?.ok_or_else(|| {
                         CliError::ModuleNotFound {
                             context: context.to_owned(),
                             name: name.to_owned(),
@@ -559,7 +559,7 @@ impl Worker {
                 }
                 dir.append_resolving(Path::new(name));
                 Ok(Resolved::Normal(
-                    self.resolve_path_or_module(dir)?.ok_or_else(|| {
+                    Self::resolve_path_or_module(dir)?.ok_or_else(|| {
                         CliError::ModuleNotFound {
                             context: context.to_owned(),
                             name: name.to_owned(),
@@ -589,7 +589,7 @@ impl Worker {
                         _ => {}
                     }
                     let new_path = dir.join(&suffix);
-                    match self.resolve_path_or_module(new_path)? {
+                    match Self::resolve_path_or_module(new_path)? {
                         Some(result) => return Ok(Resolved::Normal(result)),
                         None => {}
                     };
@@ -602,7 +602,7 @@ impl Worker {
             }
         }
     }
-    fn resolve_path_or_module(&self, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path_or_module(mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         path.push("package.json");
         let result = fs::File::open(&path);
         path.pop();
@@ -626,10 +626,10 @@ impl Worker {
                 // }
             }
         }
-        self.resolve_path(path)
+        Self::resolve_path(path)
     }
 
-    fn resolve_path(&self, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path(mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         // println!("resolve_path {}", path.display());
         if path.is_file() {
             return Ok(Some(path))
@@ -673,7 +673,7 @@ impl Worker {
         Ok(None)
     }
 
-    fn include(&self, module: &Path) -> Result<ModuleInfo, CliError> {
+    fn include(module: &Path) -> Result<ModuleInfo, CliError> {
         let mut source = String::new();
         let file = fs::File::open(module)?;
         let mut buf_reader = io::BufReader::new(file);
