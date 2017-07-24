@@ -2,6 +2,7 @@ extern crate esparse;
 extern crate crossbeam;
 extern crate num_cpus;
 extern crate json;
+extern crate notify;
 #[macro_use]
 extern crate matches;
 
@@ -47,7 +48,7 @@ macro_rules! eat {
 fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>> {
     loop {
         eat!(lex,
-            lex::Tt::Id(s) if s == "require" => eat!(lex,
+            lex::Tt::Id("require") => eat!(lex,
                 lex::Tt::Lparen => eat!(lex,
                     lex::Tt::StrLitSgl(s) |
                     lex::Tt::StrLitDbl(s) => eat!(lex,
@@ -83,8 +84,12 @@ struct Writer {
 impl Writer {
     fn write_to<W: io::Write>(&self, w: &mut W) -> Result<(), io::Error> {
         w.write(HEAD_JS.as_bytes())?;
-        // for (const [mod, main] of this.mains) {
-        //   yield `\n  Parcel.mains[${this.jsPath(mod)}] = ${this.jsPath(main)}`
+        // for (module, main) in self.mains {
+        //     write!(w,
+        //         "\n  Parcel.mains[{mod_path}] = {main_path}",
+        //         mod_path = Self::js_path(&module),
+        //         main_path = Self::js_path(&main),
+        //     );
         // }
         let mut modules = self.modules.iter().collect::<Vec<_>>();
         modules.sort_by(|&(ref f, _), &(ref g, _)| f.cmp(g));
@@ -240,37 +245,7 @@ impl ModuleState {
     }
 }
 
-fn run() -> Result<(), CliError> {
-    let mut input = None;
-    let mut output = None;
-    let mut watch = false;
-
-    for arg in env::args().skip(1) {
-        match arg.as_ref() {
-            "-h" | "--help" => return Err(CliError::Help),
-            "-w" | "--watch" => watch = true,
-            _ => {
-                if arg.starts_with("-") {
-                    return Err(CliError::UnknownOption(arg))
-                }
-                if input.is_none() {
-                    input = Some(arg)
-                } else if output.is_none() {
-                    output = Some(arg)
-                } else {
-                    return Err(CliError::UnexpectedArg(arg))
-                }
-            }
-        }
-    }
-
-    let input = input.ok_or(CliError::MissingFileName)?;
-    let input_dir = env::current_dir()?;
-    let output = output.unwrap_or("-".to_owned());
-
-    // println!("{} => {} (watching: {:?})", input, output, watch);
-    // println!();
-
+fn bundle(input: String, input_dir: PathBuf, output: &str) -> Result<(), CliError> {
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
     let worker = Worker {
@@ -382,17 +357,41 @@ fn run() -> Result<(), CliError> {
     // println!("entry point: {:?}", entry_point);
     // println!("{:#?}", modules);
 
-    // let file = fs::File::open(&input)?;
-    // let mut buf_reader = io::BufReader::new(file);
-    // let mut contents = String::new();
-    // buf_reader.read_to_string(&mut contents)?;
-
-    // let mut lexer = lex::Lexer::new(&input, &contents);
-    // while let Some(path) = scan_for_require(&mut lexer) {
-    //     println!("{}", path);
-    // }
-
     Ok(())
+}
+
+fn run() -> Result<(), CliError> {
+    let mut input = None;
+    let mut output = None;
+    let mut watch = false;
+
+    for arg in env::args().skip(1) {
+        match arg.as_ref() {
+            "-h" | "--help" => return Err(CliError::Help),
+            "-w" | "--watch" => watch = true,
+            _ => {
+                if arg.starts_with("-") {
+                    return Err(CliError::UnknownOption(arg))
+                }
+                if input.is_none() {
+                    input = Some(arg)
+                } else if output.is_none() {
+                    output = Some(arg)
+                } else {
+                    return Err(CliError::UnexpectedArg(arg))
+                }
+            }
+        }
+    }
+
+    let input = input.ok_or(CliError::MissingFileName)?;
+    let input_dir = env::current_dir()?;
+    let output = output.unwrap_or("-".to_owned());
+
+    // println!("{} => {} (watching: {:?})", input, output, watch);
+    // println!();
+
+    bundle(input, input_dir, &output)
 }
 
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
