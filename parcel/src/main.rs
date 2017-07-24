@@ -105,7 +105,7 @@ impl<'a, 'b> Writer<'a, 'b> {
 
         for (file, info) in self.sorted_modules() {
             let id = Self::name_path(&file);
-            let prefix = if matches!(file.extension(), Some(s) if s == ".json") {
+            let prefix = if matches!(file.extension(), Some(s) if s == "json") {
                 "module.exports="
             } else {
                 ""
