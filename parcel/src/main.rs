@@ -4,6 +4,7 @@ extern crate num_cpus;
 extern crate notify;
 extern crate json;
 extern crate memchr;
+extern crate base64;
 #[macro_use]
 extern crate matches;
 
@@ -131,7 +132,12 @@ impl<'a, 'b> Writer<'a, 'b> {
         match *self.map_output {
             SourceMapOutput::Suppressed => {}
             SourceMapOutput::Inline => {
-                unimplemented!()
+                let mut map = Vec::new();
+                self.write_map_to(&mut map)?;
+                write!(w,
+                    "//# sourceMappingURL=data:application/json;charset=utf-8;base64,{data}\n",
+                    data = base64::encode(&map),
+                )?;
             }
             SourceMapOutput::File(ref path) => {
                 // TODO handle error
@@ -544,7 +550,7 @@ fn bundle(entry_point: &Path, output: &str, map_output: &SourceMapOutput) -> Res
     match *map_output {
         SourceMapOutput::Suppressed => {}
         SourceMapOutput::Inline => {
-            unimplemented!()
+            // handled in Writer::write_to()
         }
         SourceMapOutput::File(ref path) => {
             let file = fs::File::create(path)?;
