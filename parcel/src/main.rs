@@ -919,7 +919,7 @@ impl Worker {
                     })?,
                 ))
             }
-            Some(&b'.') => {
+            Some(&dot) if dot == b'.' || is_main => {
                 let mut dir = context.to_owned();
                 if !is_main {
                     let did_pop = dir.pop(); // to directory
