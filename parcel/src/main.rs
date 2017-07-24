@@ -240,6 +240,7 @@ impl<'a, 'b> Writer<'a, 'b> {
 
     #[cfg(target_os = "windows")]
     fn js_path(path: &Path) -> String {
+        // TODO untested
         let string = path.to_string_lossy();
         let replaced = string.as_ref().replace('\\', "/");
         json::stringify(json::JsonValue::from(replaced))
