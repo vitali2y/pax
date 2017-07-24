@@ -152,7 +152,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
     let len = range.len();
     let mut last_pos = 0;
     let mut got_bs = false;
-    for bs_pos in memchr::Memchr::new('\\' as u8, bytes) {
+    for bs_pos in memchr::Memchr::new(b'\\', bytes) {
         got_bs = true;
         result.push_str(&range[last_pos..bs_pos]);
         let esc_pos = bs_pos + 1;
@@ -160,16 +160,16 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             panic!("parse_str_lit got '\\' at end of string");
         }
         last_pos = esc_pos + 1;
-        match bytes[esc_pos] as char {
-            '0' => result.push_str("\0"),
-            'b' => result.push_str("\u{0008}"),
-            't' => result.push_str("\u{0009}"),
-            'n' => result.push_str("\u{000A}"),
-            'v' => result.push_str("\u{000B}"),
-            'f' => result.push_str("\u{000C}"),
-            'r' => result.push_str("\u{000D}"),
+        match bytes[esc_pos] {
+            b'0' => result.push_str("\0"),
+            b'b' => result.push_str("\u{0008}"),
+            b't' => result.push_str("\u{0009}"),
+            b'n' => result.push_str("\u{000A}"),
+            b'v' => result.push_str("\u{000B}"),
+            b'f' => result.push_str("\u{000C}"),
+            b'r' => result.push_str("\u{000D}"),
 
-            'x' => {
+            b'x' => {
                 let end_pos = last_pos + 2;
                 if end_pos > len {
                     return Err(ParseStrLitError::InvalidEscape)
@@ -182,11 +182,11 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
 
                 last_pos = end_pos;
             }
-            'u' => {
-                match bytes.get(last_pos).map(|&b| b as char) {
-                    Some('{') => {
+            b'u' => {
+                match bytes.get(last_pos) {
+                    Some(&b'{') => {
                         let l_pos = last_pos + 1;
-                        let r_pos = memchr::memchr('}' as u8, &bytes[l_pos..])
+                        let r_pos = memchr::memchr(b'}', &bytes[l_pos..])
                         .ok_or(ParseStrLitError::InvalidEscape)?;
 
                         let hex = &range[l_pos..r_pos];
@@ -219,14 +219,16 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             }
 
             // ignore <cr> and <cr><lf>
-            '\u{000D}' => match bytes.get(last_pos).map(|&b| b as char) {
-                Some('\u{000A}') => last_pos += 1,
+            b'\r' => match bytes.get(last_pos) {
+                Some(&b'\n') => last_pos += 1,
                 _ => {}
             }
             // ignore line terminators
-            '\u{000A}' |
-            '\u{2028}' |
-            '\u{2029}' => {}
+            b'\n' => {}
+
+            // TODO ignore non-ASCII line terminators
+            // '\u{2028}' |
+            // '\u{2029}' => {}
 
             // TODO legacy octal
             // '1'...'9' => unimplemented!()
@@ -234,7 +236,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             // c @ '\'' |
             // c @ '\\' |
             // c @ '"' |
-            c => result.push(c),
+            c => result.push(c as char),
         }
     }
     Ok(if got_bs {

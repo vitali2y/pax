@@ -1,8 +1,9 @@
 extern crate esparse;
 extern crate crossbeam;
 extern crate num_cpus;
-extern crate json;
 extern crate notify;
+extern crate json;
+extern crate memchr;
 #[macro_use]
 extern crate matches;
 
@@ -16,6 +17,7 @@ use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 use std::any::Any;
 use std::borrow::Cow;
+use std::ffi::OsString;
 use crossbeam::sync::SegQueue;
 
 use esparse::lex;
@@ -48,6 +50,7 @@ macro_rules! eat {
 fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>> {
     loop {
         eat!(lex,
+            // lex::Tt::Id(s) if s == "require" => eat!(lex,
             lex::Tt::Id("require") => eat!(lex,
                 lex::Tt::Lparen => eat!(lex,
                     lex::Tt::StrLitSgl(s) |
@@ -76,14 +79,21 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
 }
 
 #[derive(Debug)]
-struct Writer<'a> {
+struct Writer<'a, 'b> {
     modules: HashMap<PathBuf, Module>,
     entry_point: &'a Path,
+    map_output: &'b SourceMapOutput,
 }
 
-impl<'a> Writer<'a> {
-    fn write_to<W: io::Write>(&self, w: &mut W) -> Result<(), io::Error> {
-        w.write(HEAD_JS.as_bytes())?;
+impl<'a, 'b> Writer<'a, 'b> {
+    fn sorted_modules(&self) -> Vec<(&PathBuf, &Module)> {
+        let mut modules = self.modules.iter().collect::<Vec<_>>();
+        modules.sort_by(|&(ref f, _), &(ref g, _)| f.cmp(g));
+        modules
+    }
+
+    fn write_to<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+        w.write_all(HEAD_JS.as_bytes())?;
         // for (module, main) in self.mains {
         //     write!(w,
         //         "\n  Parcel.mains[{mod_path}] = {main_path}",
@@ -91,10 +101,8 @@ impl<'a> Writer<'a> {
         //         main_path = Self::js_path(&main),
         //     );
         // }
-        let mut modules = self.modules.iter().collect::<Vec<_>>();
-        modules.sort_by(|&(ref f, _), &(ref g, _)| f.cmp(g));
 
-        for (file, info) in modules {
+        for (file, info) in self.sorted_modules() {
             let id = Self::name_path(&file);
             let prefix = if matches!(file.extension(), Some(s) if s == ".json") {
                 "module.exports="
@@ -111,15 +119,95 @@ impl<'a> Writer<'a> {
                 deps = deps,
                 prefix = prefix,
             )?;
-            w.write(info.source.as_bytes())?;
+            w.write_all(info.source.as_bytes())?;
             write!(w, "}}")?;
         }
         let main = Self::name_path(self.entry_point);
         write!(w,
-            "\n  Parcel.main = {main}; Parcel.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Parcel.main.module && Parcel.main.module.exports",
+            "\n  Parcel.main = {main}; Parcel.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Parcel.main.module && Parcel.main.module.exports\n",
             main = main,
         )?;
-        w.write(TAIL_JS.as_bytes())?;
+        w.write_all(TAIL_JS.as_bytes())?;
+        match *self.map_output {
+            SourceMapOutput::Suppressed => {}
+            SourceMapOutput::Inline => {
+                unimplemented!()
+            }
+            SourceMapOutput::File(ref path) => {
+                // TODO handle error
+                let relative = path.relative_from(self.entry_point.parent().unwrap());
+                let map = relative.as_ref().unwrap_or(path);
+                write!(w,
+                    "//# sourceMappingURL={map}\n",
+                    map = map.display(),
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn write_map_to<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+        // TODO this is borderline unmaintainable, but constructing a JsonValue is *really* wasteful
+
+        let modules = self.sorted_modules();
+        let dir = self.entry_point.parent().unwrap();
+
+        w.write_all(r#"{"version":3,"file":"","sourceRoot":"","sources":["#.as_bytes())?;
+
+        let mut comma = false;
+        for &(f, _) in &modules {
+            if comma {
+                w.write_all(b",")?;
+            }
+            let relative = f.relative_from(dir);
+            let path = relative.as_ref().unwrap_or(f);
+            let string = path.to_string_lossy();
+            write_json_string(w, string.as_ref())?;
+            comma = true;
+        }
+        w.write_all(r#"],"sourcesContent":["#.as_bytes())?;
+
+        let mut comma = false;
+        for &(_, module) in &modules {
+            if comma {
+                w.write_all(b",")?;
+            }
+            write_json_string(w, &module.source)?;
+            comma = true;
+        }
+        w.write_all(r#"],"names":[],"mappings":""#.as_bytes())?;
+
+        let prefix_len = count_lines(HEAD_JS); /*+ this.mains.size*/
+        for _ in 0..prefix_len {
+            w.write_all(b";")?;
+        }
+
+        let mut line = 0;
+        let mut buf = [0u8; 13];
+        for (index, &(_, module)) in modules.iter().enumerate() {
+            w.write_all(b";")?;
+            for i in 0..count_lines(&module.source) {
+                w.write_all(b"A")?;
+                if i == 0 {
+                    if index == 0 {
+                        w.write_all(b"AAA")?;
+                    } else {
+                        w.write_all(b"C")?;
+                        w.write_all(vlq(&mut buf, -line))?;
+                        w.write_all(b"A")?;
+                    }
+                    line = 0;
+                } else {
+                    w.write_all(b"ACA")?;
+                    line += 1;
+                }
+                w.write_all(b";")?;
+            }
+        }
+        for _ in 0..2 + count_lines(TAIL_JS) + 1 - 1 - 1 {
+            w.write_all(b";")?;
+        }
+        w.write_all(r#""}"#.as_bytes())?;
         Ok(())
     }
 
@@ -169,10 +257,9 @@ impl<'a> Writer<'a> {
 
         result.push_str("file_");
         for &b in bytes {
-            let c = b as char;
-            match c {
-                '_' | 'a'...'z' | 'A'...'Z' => {
-                    result.push(c);
+            match b {
+                b'_' | b'a'...b'z' | b'A'...b'Z' => {
+                    result.push(b as char);
                 }
                 _ => {
                     write!(result, "${:02x}", b).unwrap();
@@ -190,6 +277,109 @@ impl<'a> Writer<'a> {
         // }
     }
 }
+
+fn count_lines(source: &str) -> usize {
+    // TODO non-ASCII line terminators?
+    1 + memchr::Memchr::new(b'\n', source.as_bytes()).count()
+}
+
+const QU: u8 = b'"';
+const BS: u8 = b'\\';
+const BB: u8 = b'b';
+const TT: u8 = b't';
+const NN: u8 = b'n';
+const FF: u8 = b'f';
+const RR: u8 = b'r';
+const UU: u8 = b'u';
+const __: u8 = 0;
+
+static ESCAPED: [u8; 256] = [
+// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+  UU, UU, UU, UU, UU, UU, UU, UU, BB, TT, NN, UU, FF, RR, UU, UU, // 0
+  UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, // 1
+  __, __, QU, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
+  __, __, __, __, __, __, __, __, __, __, __, __, BS, __, __, __, // 5
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
+];
+
+#[inline(never)]
+#[cold]
+fn write_json_string_complex<W: io::Write>(w: &mut W, string: &str, mut start: usize) -> io::Result<()> {
+    w.write_all(string[..start].as_bytes())?;
+
+    for (index, ch) in string.bytes().enumerate().skip(start) {
+        let escape = ESCAPED[ch as usize];
+        if escape > 0 {
+            w.write_all(string[start..index].as_bytes())?;
+            w.write_all(&[b'\\', escape])?;
+            start = index + 1;
+        }
+        if escape == b'u' {
+            write!(w, "{:04x}", ch)?;
+        }
+    }
+    w.write_all(string[start..].as_bytes())?;
+    w.write_all(&[b'"'])?;
+    Ok(())
+}
+
+#[inline]
+fn write_json_string<W: io::Write>(w: &mut W, string: &str) -> io::Result<()> {
+    w.write_all(&[b'"'])?;
+
+    for (index, ch) in string.bytes().enumerate() {
+        if ESCAPED[ch as usize] > 0 {
+            return write_json_string_complex(w, string, index)
+        }
+    }
+
+    w.write_all(string.as_bytes())?;
+    w.write_all(&[b'"'])?;
+    Ok(())
+}
+
+// fn write_vlq<W: io::Write>(w: &mut W, n: isize) -> io::Result<()> {
+//     let sign = n < 0;
+//     let n = if sign { -n } else { n } as usize;
+//     let y = (n & 0xf) << 1 | sign as usize;
+//     let r = n >> 4;
+//     while r > 0 {
+//         y |= 0x20;
+//         w.write_all(&[B64[y]])?;
+//         y = r & 0x1f;
+//         r >>= 5;
+//     }
+//     w.write_all(&[B64[y]])
+// }
+fn vlq(buf: &mut [u8; 13], n: isize) -> &[u8] {
+    let sign = n < 0;
+    let n = if sign { -n } else { n } as usize;
+    let mut y = (n & 0xf) << 1 | sign as usize;
+    let mut r = n >> 4;
+    let mut l = 0;
+    while r > 0 {
+        y |= 0x20;
+        buf[l] = B64[y];
+        y = r & 0x1f;
+        r >>= 5;
+        l += 1;
+    }
+    buf[l] = B64[y];
+    &buf[0..l+1]
+}
+const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 
 #[derive(Debug, Clone)]
 struct Worker {
@@ -231,6 +421,13 @@ enum Resolved {
     Normal(PathBuf),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SourceMapOutput {
+    Suppressed,
+    Inline,
+    File(PathBuf),
+}
+
 impl ModuleState {
     fn expect(self, message: &str) -> Module {
         match self {
@@ -243,7 +440,7 @@ impl ModuleState {
     }
 }
 
-fn bundle(entry_point: &Path, output: &str) -> Result<HashMap<PathBuf, Module>, CliError> {
+fn bundle(entry_point: &Path, output: &str, map_output: &SourceMapOutput) -> Result<HashMap<PathBuf, Module>, CliError> {
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
@@ -329,6 +526,7 @@ fn bundle(entry_point: &Path, output: &str) -> Result<HashMap<PathBuf, Module>, 
         .map(|(k, ms)| (k, ms.unwrap()))
         .collect(),
         entry_point,
+        map_output,
     };
 
     match &*output {
@@ -343,6 +541,17 @@ fn bundle(entry_point: &Path, output: &str) -> Result<HashMap<PathBuf, Module>, 
             writer.write_to(&mut buf_writer)?;
         }
     }
+    match *map_output {
+        SourceMapOutput::Suppressed => {}
+        SourceMapOutput::Inline => {
+            unimplemented!()
+        }
+        SourceMapOutput::File(ref path) => {
+            let file = fs::File::create(path)?;
+            let mut buf_writer = io::BufWriter::new(file);
+            writer.write_map_to(&mut buf_writer)?;
+        }
+    }
     // println!("entry point: {:?}", entry_point);
     // println!("{:#?}", modules);
 
@@ -352,12 +561,36 @@ fn bundle(entry_point: &Path, output: &str) -> Result<HashMap<PathBuf, Module>, 
 fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
+    let mut map = None;
+    let mut map_inline = false;
+    let mut no_map = false;
     let mut watch = false;
 
-    for arg in env::args().skip(1) {
+    let mut iter = env::args().skip(1);
+    while let Some(arg) = iter.next() {
         match arg.as_ref() {
             "-h" | "--help" => return Err(CliError::Help),
             "-w" | "--watch" => watch = true,
+            "-I" | "--map-inline" => map_inline = true,
+            "-M" | "--no-map" => no_map = true,
+            "-m" | "--map" => {
+                if map.is_some() {
+                    return Err(CliError::DuplicateOption(arg))
+                }
+                map = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
+            }
+            "-i" | "--input" => {
+                if input.is_some() {
+                    return Err(CliError::DuplicateOption(arg))
+                }
+                input = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
+            }
+            "-o" | "--output" => {
+                if output.is_some() {
+                    return Err(CliError::DuplicateOption(arg))
+                }
+                output = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
+            }
             _ => {
                 if arg.starts_with("-") {
                     return Err(CliError::UnknownOption(arg))
@@ -373,9 +606,34 @@ fn run() -> Result<(), CliError> {
         }
     }
 
+    if map_inline as u8 + no_map as u8 + map.is_some() as u8 > 1 {
+        return Err(CliError::BadUsage("--map-inline, --map <file>, and --no-map are mutually exclusive"))
+    }
+
     let input = input.ok_or(CliError::MissingFileName)?;
     let input_dir = env::current_dir()?;
     let output = output.unwrap_or("-".to_owned());
+
+    let map_output = if map_inline {
+        SourceMapOutput::Inline
+    } else if no_map {
+        SourceMapOutput::Suppressed
+    } else {
+        match map {
+            Some(path) => {
+                SourceMapOutput::File(PathBuf::from(path))
+            }
+            None => {
+                if output == "-" {
+                    SourceMapOutput::Suppressed
+                } else {
+                    let mut buf = OsString::from(&output);
+                    buf.push(".map");
+                    SourceMapOutput::File(PathBuf::from(buf))
+                }
+            }
+        }
+    };
 
     // println!("{} => {} (watching: {:?})", input, output, watch);
     // println!();
@@ -385,7 +643,7 @@ fn run() -> Result<(), CliError> {
         _ => panic!("non-normal entry point module"),
     };
 
-    bundle(&entry_point, &output).map(|_| ())
+    bundle(&entry_point, &output, &map_output).map(|_| ())
 }
 
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -405,13 +663,28 @@ fn print_help() {
 usage: {0} [options] <input> [output]
        {0} [-h | --help]
 
-arguments:
-    <input>        input filename
-    [output]       output filename or '-' for stdout (default '-')
-
 options:
-    -w, --watch    watch for changes to <input> and its dependencies
-    -h, --help     print this message
+    -i, --input <input>
+        use <input> as the main module
+
+    -o, --output <output>
+        write bundle to <output> and source map to <output>.map
+        default '-' for stdout
+
+    -m, --map <map>
+        output source map to <map>
+
+    -I, --map-inline
+        output source map inline as data URI
+
+    -M, --no-map
+        suppress source map output when it would normally be implied
+
+    -w, --watch
+        watch for changes to <input> and its dependencies
+
+    -h, --help
+        print this message
 ", APP_NAME, APP_VERSION);
 }
 
@@ -419,8 +692,11 @@ options:
 enum CliError {
     Help,
     MissingFileName,
+    DuplicateOption(String),
+    MissingOptionValue(String),
     UnknownOption(String),
     UnexpectedArg(String),
+    BadUsage(&'static str),
 
     RequireRoot { path: PathBuf },
     EmptyModuleName { context: PathBuf },
@@ -453,8 +729,11 @@ fn main() {
             match kind {
                 CliError::Help => print_help(),
                 CliError::MissingFileName => print_usage(),
+                CliError::DuplicateOption(opt) => println!("{}: option {} specified more than once", APP_NAME, opt),
+                CliError::MissingOptionValue(opt) => println!("{}: missing value for option {}", APP_NAME, opt),
                 CliError::UnknownOption(opt) => println!("{}: unknown option {}", APP_NAME, opt),
                 CliError::UnexpectedArg(arg) => println!("{}: unexpected argument {}", APP_NAME, arg),
+                CliError::BadUsage(arg) => println!("{}: {}", APP_NAME, arg),
 
                 CliError::RequireRoot { path } => println!("{}: require of root path {}", APP_NAME, path.display()), // TODO in what module
                 CliError::EmptyModuleName { context } => println!("{}: require('') in {}", APP_NAME, context.display()),
@@ -469,10 +748,10 @@ fn main() {
     })
 }
 
-trait AppendResolving {
+trait PathBufExt {
     fn append_resolving<P: AsRef<Path> + ?Sized>(&mut self, more: &P);
 }
-impl AppendResolving for PathBuf {
+impl PathBufExt for PathBuf {
     fn append_resolving<P: AsRef<Path> + ?Sized>(&mut self, more: &P) {
         for c in more.as_ref().components() {
             match c {
@@ -491,6 +770,50 @@ impl AppendResolving for PathBuf {
                     self.push(part);
                 }
             }
+        }
+    }
+}
+
+trait PathExt {
+    fn relative_from<P: AsRef<Path> + ?Sized>(&self, base: &P) -> Option<PathBuf>;
+}
+impl PathExt for Path {
+    fn relative_from<P: AsRef<Path> + ?Sized>(&self, base: &P) -> Option<PathBuf> {
+        let base = base.as_ref();
+        if self.is_absolute() != base.is_absolute() {
+            if self.is_absolute() {
+                Some(PathBuf::from(self))
+            } else {
+                None
+            }
+        } else {
+            let mut ita = self.components();
+            let mut itb = base.components();
+            let mut comps: Vec<Component> = vec![];
+            loop {
+                match (ita.next(), itb.next()) {
+                    (None, None) => break,
+                    (Some(a), None) => {
+                        comps.push(a);
+                        comps.extend(ita.by_ref());
+                        break;
+                    }
+                    (None, _) => comps.push(Component::ParentDir),
+                    (Some(a), Some(b)) if comps.is_empty() && a == b => (),
+                    (Some(a), Some(b)) if b == Component::CurDir => comps.push(a),
+                    (Some(_), Some(b)) if b == Component::ParentDir => return None,
+                    (Some(a), Some(_)) => {
+                        comps.push(Component::ParentDir);
+                        for _ in itb {
+                            comps.push(Component::ParentDir);
+                        }
+                        comps.push(a);
+                        comps.extend(ita.by_ref());
+                        break;
+                    }
+                }
+            }
+            Some(comps.iter().map(|c| c.as_os_str()).collect())
         }
     }
 }
@@ -520,11 +843,11 @@ impl Worker {
 
     fn resolve(context: &Path, name: &str, is_main: bool) -> Result<Resolved, CliError> {
         // match name.chars().next() {
-        match name.as_bytes().get(0).map(|&b| b as char) {
+        match name.as_bytes().get(0) {
             None => Err(CliError::EmptyModuleName {
                 context: context.to_owned()
             }),
-            Some('/') => {
+            Some(&b'/') => {
                 Ok(Resolved::Normal(
                     Self::resolve_path_or_module(PathBuf::from(name))?.ok_or_else(|| {
                         CliError::ModuleNotFound {
@@ -534,7 +857,7 @@ impl Worker {
                     })?,
                 ))
             }
-            Some('.') => {
+            Some(&b'.') => {
                 let mut dir = context.to_owned();
                 if !is_main {
                     let did_pop = dir.pop(); // to directory
