@@ -667,10 +667,6 @@ fn run() -> Result<(), CliError> {
             thread::sleep(debounce_dur);
             for event in iter::once(first_event).chain(rx.try_iter()) {
                 let _op = event.op?;
-                // match event {
-                //     notify::DebouncedEvent::Error(error, _) => return Err(From::from(error)),
-                //     _ => {}
-                // }
             }
 
             let start_inst = time::Instant::now();
