@@ -646,10 +646,7 @@ fn run() -> Result<(), CliError> {
     // println!("{} => {} (watching: {:?})", input, output, watch);
     // println!();
 
-    let entry_point = match Worker::resolve(&input_dir, &input, true)? {
-        Resolved::Normal(resolved) => resolved,
-        _ => panic!("non-normal entry point module"),
-    };
+    let entry_point = Worker::resolve_main(input_dir, &input)?;
 
     if watch {
         let (tx, rx) = mpsc::channel();
@@ -756,6 +753,7 @@ enum CliError {
     RequireRoot { path: PathBuf },
     EmptyModuleName { context: PathBuf },
     ModuleNotFound { context: PathBuf, name: String },
+    MainNotFound { name: String },
 
     Io(io::Error),
     Json(json::Error),
@@ -799,6 +797,7 @@ fn main() {
                 CliError::RequireRoot { path } => println!("{}: require of root path {}", APP_NAME, path.display()), // TODO in what module
                 CliError::EmptyModuleName { context } => println!("{}: require('') in {}", APP_NAME, context.display()),
                 CliError::ModuleNotFound { context, name } => println!("{}: module '{}' not found in {}", APP_NAME, name, context.display()),
+                CliError::MainNotFound { name } => println!("{}: main module '{}' not found", APP_NAME, name),
 
                 CliError::Io(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Json(inner) => println!("{}: {}", APP_NAME, inner),
@@ -885,7 +884,7 @@ impl Worker {
         while let Some(work) = self.get_work() {
             self.tx.send(match work {
                 Work::Resolve { context, name } => {
-                    Self::resolve(&context, &name, false)
+                    Self::resolve(&context, &name)
                     .map(|resolved| WorkDone::Resolve {
                         context,
                         name,
@@ -903,7 +902,16 @@ impl Worker {
         }
     }
 
-    fn resolve(context: &Path, name: &str, is_main: bool) -> Result<Resolved, CliError> {
+    fn resolve_main(mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
+        dir.append_resolving(Path::new(name));
+        Self::resolve_path_or_module(dir)?.ok_or_else(|| {
+            CliError::MainNotFound {
+                name: name.to_owned(),
+            }
+        })
+    }
+
+    fn resolve(context: &Path, name: &str) -> Result<Resolved, CliError> {
         // match name.chars().next() {
         match name.as_bytes().get(0) {
             None => Err(CliError::EmptyModuleName {
@@ -919,12 +927,10 @@ impl Worker {
                     })?,
                 ))
             }
-            Some(&dot) if dot == b'.' || is_main => {
+            Some(&b'.') => {
                 let mut dir = context.to_owned();
-                if !is_main {
-                    let did_pop = dir.pop(); // to directory
-                    debug_assert!(did_pop);
-                }
+                let did_pop = dir.pop(); // to directory
+                debug_assert!(did_pop);
                 dir.append_resolving(Path::new(name));
                 Ok(Resolved::Normal(
                     Self::resolve_path_or_module(dir)?.ok_or_else(|| {
@@ -938,10 +944,6 @@ impl Worker {
             // TODO support unix-style absolute paths?
             // TODO absolute paths on windows
             _ => {
-                if is_main {
-                    panic!("entry point must be a file")
-                }
-
                 match name {
                     "assert" | "buffer" | "child_process" | "cluster" | "crypto" | "dgram" | "dns" | "domain" | "events" | "fs" | "http" | "https" | "net" | "os" | "path" | "punycode" | "querystring" | "readline" | "stream" | "string_decoder" | "tls" | "tty" | "url" | "util" | "v8" | "vm" | "zlib" => return Ok(Resolved::Core),
                     _ => {}
