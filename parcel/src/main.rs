@@ -76,12 +76,12 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
 }
 
 #[derive(Debug)]
-struct Writer {
+struct Writer<'a> {
     modules: HashMap<PathBuf, Module>,
-    entry_point: PathBuf,
+    entry_point: &'a Path,
 }
 
-impl Writer {
+impl<'a> Writer<'a> {
     fn write_to<W: io::Write>(&self, w: &mut W) -> Result<(), io::Error> {
         w.write(HEAD_JS.as_bytes())?;
         // for (module, main) in self.mains {
@@ -114,7 +114,7 @@ impl Writer {
             w.write(info.source.as_bytes())?;
             write!(w, "}}")?;
         }
-        let main = Self::name_path(&self.entry_point);
+        let main = Self::name_path(self.entry_point);
         write!(w,
             "\n  Parcel.main = {main}; Parcel.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Parcel.main.module && Parcel.main.module.exports",
             main = main,
@@ -243,7 +243,7 @@ impl ModuleState {
     }
 }
 
-fn bundle(entry_point: PathBuf, output: &str) -> Result<(), CliError> {
+fn bundle(entry_point: &Path, output: &str) -> Result<HashMap<PathBuf, Module>, CliError> {
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
@@ -255,9 +255,9 @@ fn bundle(entry_point: PathBuf, output: &str) -> Result<(), CliError> {
 
     let mut modules = HashMap::<PathBuf, ModuleState>::new();
 
-    worker.add_work(Work::Include { module: entry_point.clone() });
+    worker.add_work(Work::Include { module: entry_point.to_owned() });
     pending += 1;
-    modules.insert(entry_point.clone(), ModuleState::Loading);
+    modules.insert(entry_point.to_owned(), ModuleState::Loading);
 
     let children: Vec<_> = (0..thread_count).map(|_| {
         let worker = worker.clone();
@@ -346,7 +346,7 @@ fn bundle(entry_point: PathBuf, output: &str) -> Result<(), CliError> {
     // println!("entry point: {:?}", entry_point);
     // println!("{:#?}", modules);
 
-    Ok(())
+    Ok(writer.modules)
 }
 
 fn run() -> Result<(), CliError> {
@@ -385,7 +385,7 @@ fn run() -> Result<(), CliError> {
         _ => panic!("non-normal entry point module"),
     };
 
-    bundle(entry_point, &output)
+    bundle(&entry_point, &output).map(|_| ())
 }
 
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
