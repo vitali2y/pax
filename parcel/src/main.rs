@@ -22,42 +22,24 @@ use std::ffi::OsString;
 use crossbeam::sync::SegQueue;
 use notify::Watcher;
 
-use esparse::lex;
+use esparse::lex::{self, Tt};
+
+#[macro_use]
+mod macros;
 
 const HEAD_JS: &'static str = include_str!("head.js");
 const TAIL_JS: &'static str = include_str!("tail.js");
-
-macro_rules! eat {
-    (@collect $lexer:expr, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, _ => $else:expr $(,)*) => {
-        match $lexer.here().tt {
-            $($($p)|+ if $c => {
-                $lexer.advance();
-                $e
-            })*
-            _ => $else
-        }
-    };
-    (@collect $lexer:expr, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, $($q:pat)|+ => $f:expr, $($t:tt)+) => {
-        eat!(@collect $lexer, { $($($p)|+ if $c => $e ,)* $($q)|+ if true => $f, }, $($t)+)
-    };
-    (@collect $lexer:expr, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, $($q:pat)|+ if $d:expr => $f:expr, $($t:tt)+) => {
-        eat!(@collect $lexer, { $($($p)|+ if $c => $e ,)* $($q)|+ if $d => $f, }, $($t)+)
-    };
-    ($lexer:expr, $($t:tt)+) => {
-        eat!(@collect $lexer, {}, $($t)+)
-    };
-}
 
 #[inline]
 fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>> {
     loop {
         eat!(lex,
-            // lex::Tt::Id(s) if s == "require" => eat!(lex,
-            lex::Tt::Id("require") => eat!(lex,
-                lex::Tt::Lparen => eat!(lex,
-                    lex::Tt::StrLitSgl(s) |
-                    lex::Tt::StrLitDbl(s) => eat!(lex,
-                        lex::Tt::Rparen => {
+            // Tt::Id(s) if s == "require" => eat!(lex,
+            Tt::Id("require") => eat!(lex,
+                Tt::Lparen => eat!(lex,
+                    Tt::StrLitSgl(s) |
+                    Tt::StrLitDbl(s) => eat!(lex,
+                        Tt::Rparen => {
                             // TODO handle error
                             return Some(lex::str_lit_value(s).unwrap())
                         },
@@ -72,7 +54,7 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
                 _ => {
                 },
             ),
-            lex::Tt::Eof => return None,
+            Tt::Eof => return None,
             _ => {
                 lex.advance();
             },
@@ -570,6 +552,7 @@ fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
     let mut map = None;
+    let mut es6_syntax = false;
     let mut map_inline = false;
     let mut no_map = false;
     let mut watch = false;
@@ -581,6 +564,7 @@ fn run() -> Result<(), CliError> {
             "-w" | "--watch" => watch = true,
             "-I" | "--map-inline" => map_inline = true,
             "-M" | "--no-map" => no_map = true,
+            "-e" | "--es6-syntax" => es6_syntax = true,
             "-m" | "--map" => {
                 if map.is_some() {
                     return Err(CliError::DuplicateOption(arg))
@@ -703,7 +687,7 @@ const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn print_usage() {
     println!("\
-usage: {0} [options] <input> [output]
+Usage: {0} [options] <input> [output]
        {0} [-h | --help]
 ", APP_NAME);
 }
@@ -712,31 +696,43 @@ fn print_help() {
         println!("\
 {0} v{1}
 
-usage: {0} [options] <input> [output]
-       {0} [-h | --help]
+Usage:
+    {0} [options] <input> [output]
+    {0} [-h | --help]
 
-options:
+Options:
     -i, --input <input>
-        use <input> as the main module
+        Use <input> as the main module.
 
     -o, --output <output>
-        write bundle to <output> and source map to <output>.map
-        default '-' for stdout
+        Write bundle to <output> and source map to <output>.map.
+        Default: '-' for stdout.
 
     -m, --map <map>
-        output source map to <map>
+        Output source map to <map>.
 
     -I, --map-inline
-        output source map inline as data URI
+        Output source map inline as data: URI.
 
     -M, --no-map
-        suppress source map output when it would normally be implied
+        Suppress source map output when it would normally be implied.
 
     -w, --watch
-        watch for changes to <input> and its dependencies
+        Watch for changes to <input> and its dependencies.
+
+    -e, --es6-syntax
+        Use ES6 (ES2015) module syntax:
+
+            import itt from 'itt'
+            export const greeting = 'Hello, world!'
+
+        Instead of CommonJS require syntax:
+
+            const itt = require('itt')
+            exports.greeting = 'Hello, world!'
 
     -h, --help
-        print this message
+        Print this message.
 ", APP_NAME, APP_VERSION);
 }
 
