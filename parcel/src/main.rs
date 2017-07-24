@@ -201,13 +201,11 @@ struct Worker {
 // TODO use references
 #[derive(Debug)]
 enum Work {
-    ResolveMain { dir: PathBuf, name: String },
     Resolve { context: PathBuf, name: String },
     Include { module: PathBuf },
 }
 #[derive(Debug)]
 enum WorkDone {
-    ResolveMain { resolved: PathBuf },
     Resolve { context: PathBuf, name: String, resolved: Resolved },
     Include { module: PathBuf, info: ModuleInfo },
 }
@@ -255,16 +253,21 @@ fn bundle(input: String, input_dir: PathBuf, output: &str) -> Result<(), CliErro
     };
 
     let mut pending = 0;
-    worker.add_work(Work::ResolveMain { dir: input_dir, name: input });
+
+    let mut modules = HashMap::<PathBuf, ModuleState>::new();
+    let entry_point = match Worker::resolve(&input_dir, &input, true)? {
+        Resolved::Normal(resolved) => resolved,
+        _ => panic!("non-normal entry point module"),
+    };
+
+    worker.add_work(Work::Include { module: entry_point.clone() });
     pending += 1;
+    modules.insert(entry_point.clone(), ModuleState::Loading);
 
     let children: Vec<_> = (0..thread_count).map(|_| {
         let worker = worker.clone();
         thread::spawn(move || worker.run())
     }).collect();
-
-    let mut modules = HashMap::<PathBuf, ModuleState>::new();
-    let mut entry_point = None;
 
     loop {
         let work_done = match rx.recv() {
@@ -282,15 +285,6 @@ fn bundle(input: String, input_dir: PathBuf, output: &str) -> Result<(), CliErro
             }
         };
         match work_done {
-            WorkDone::ResolveMain { resolved } => {
-                debug_assert_matches!(entry_point, None);
-                entry_point = Some(resolved.clone());
-                modules.entry(resolved.clone()).or_insert_with(|| {
-                    worker.add_work(Work::Include { module: resolved });
-                    pending += 1;
-                    ModuleState::Loading
-                });
-            }
             WorkDone::Resolve { context, name, resolved } => {
                 match *modules.get_mut(&context).unwrap() {
                     ModuleState::Loading => unreachable!(),
@@ -339,7 +333,7 @@ fn bundle(input: String, input_dir: PathBuf, output: &str) -> Result<(), CliErro
         modules: modules.into_iter()
         .map(|(k, ms)| (k, ms.unwrap()))
         .collect(),
-        entry_point: entry_point.unwrap(),
+        entry_point,
     };
 
     match &*output {
@@ -505,17 +499,6 @@ impl Worker {
     fn run(mut self) {
         while let Some(work) = self.get_work() {
             self.tx.send(match work {
-                Work::ResolveMain { dir, name } => {
-                    Self::resolve(&dir, &name, true)
-                    .map(|resolved| match resolved {
-                        Resolved::Normal(resolved) => {
-                            WorkDone::ResolveMain {
-                                resolved,
-                            }
-                        }
-                        _ => panic!("non-normal entry point module"),
-                    })
-                }
                 Work::Resolve { context, name } => {
                     Self::resolve(&context, &name, false)
                     .map(|resolved| WorkDone::Resolve {
