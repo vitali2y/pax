@@ -243,7 +243,8 @@ impl ModuleState {
     }
 }
 
-fn bundle(input: String, input_dir: PathBuf, output: &str) -> Result<(), CliError> {
+fn bundle(entry_point: PathBuf, output: &str) -> Result<(), CliError> {
+    let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
     let worker = Worker {
@@ -252,13 +253,7 @@ fn bundle(input: String, input_dir: PathBuf, output: &str) -> Result<(), CliErro
         queue: Arc::new(SegQueue::new()),
     };
 
-    let mut pending = 0;
-
     let mut modules = HashMap::<PathBuf, ModuleState>::new();
-    let entry_point = match Worker::resolve(&input_dir, &input, true)? {
-        Resolved::Normal(resolved) => resolved,
-        _ => panic!("non-normal entry point module"),
-    };
 
     worker.add_work(Work::Include { module: entry_point.clone() });
     pending += 1;
@@ -385,7 +380,12 @@ fn run() -> Result<(), CliError> {
     // println!("{} => {} (watching: {:?})", input, output, watch);
     // println!();
 
-    bundle(input, input_dir, &output)
+    let entry_point = match Worker::resolve(&input_dir, &input, true)? {
+        Resolved::Normal(resolved) => resolved,
+        _ => panic!("non-normal entry point module"),
+    };
+
+    bundle(entry_point, &output)
 }
 
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
