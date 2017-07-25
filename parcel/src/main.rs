@@ -548,6 +548,63 @@ fn bundle(entry_point: &Path, output: &str, map_output: &SourceMapOutput) -> Res
     Ok(writer.modules)
 }
 
+fn expand_arg(arg: String) -> ExpandArg {
+    ExpandArg {
+        arg: Some(arg),
+        state: ExpandArgState::Start,
+    }
+}
+
+#[derive(Debug)]
+struct ExpandArg {
+    arg: Option<String>,
+    state: ExpandArgState,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExpandArgState {
+    Start,
+    ShortOption(usize),
+    Done,
+}
+
+impl Iterator for ExpandArg {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.state {
+                ExpandArgState::Start => {
+                    let is_short = {
+                        let arg = self.arg.as_ref().unwrap().as_bytes();
+                        arg.len() >= 2 && arg[0] == b'-' && arg[1] != b'-'
+                    };
+                    if is_short {
+                        self.state = ExpandArgState::ShortOption(1);
+                    } else {
+                        self.state = ExpandArgState::Done;
+                        return self.arg.take()
+                    }
+                }
+                ExpandArgState::ShortOption(n) => {
+                    let mut indices = self.arg.as_ref().unwrap()[n..].char_indices();
+                    match indices.next() {
+                        Some((_, c)) => {
+                            self.state = match indices.next() {
+                                Some((m, _)) => ExpandArgState::ShortOption(n + m),
+                                None => ExpandArgState::Done,
+                            };
+                            return Some(format!("-{}", c))
+                        }
+                        None => unreachable!(),
+                    }
+                }
+                ExpandArgState::Done => return None,
+            }
+        }
+    }
+}
+// impl iter::FusedIterator for ExpandArg {}
+
 fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
@@ -559,40 +616,42 @@ fn run() -> Result<(), CliError> {
 
     let mut iter = env::args().skip(1);
     while let Some(arg) = iter.next() {
-        match arg.as_ref() {
-            "-h" | "--help" => return Err(CliError::Help),
-            "-w" | "--watch" => watch = true,
-            "-I" | "--map-inline" => map_inline = true,
-            "-M" | "--no-map" => no_map = true,
-            "-e" | "--es6-syntax" => es6_syntax = true,
-            "-m" | "--map" => {
-                if map.is_some() {
-                    return Err(CliError::DuplicateOption(arg))
+        for arg in expand_arg(arg) {
+            match &*arg {
+                "-h" | "--help" => return Err(CliError::Help),
+                "-w" | "--watch" => watch = true,
+                "-I" | "--map-inline" => map_inline = true,
+                "-M" | "--no-map" => no_map = true,
+                "-e" | "--es6-syntax" => es6_syntax = true,
+                "-m" | "--map" => {
+                    if map.is_some() {
+                        return Err(CliError::DuplicateOption(arg))
+                    }
+                    map = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
                 }
-                map = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
-            }
-            "-i" | "--input" => {
-                if input.is_some() {
-                    return Err(CliError::DuplicateOption(arg))
+                "-i" | "--input" => {
+                    if input.is_some() {
+                        return Err(CliError::DuplicateOption(arg))
+                    }
+                    input = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
                 }
-                input = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
-            }
-            "-o" | "--output" => {
-                if output.is_some() {
-                    return Err(CliError::DuplicateOption(arg))
+                "-o" | "--output" => {
+                    if output.is_some() {
+                        return Err(CliError::DuplicateOption(arg))
+                    }
+                    output = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
                 }
-                output = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
-            }
-            _ => {
-                if arg.starts_with("-") {
-                    return Err(CliError::UnknownOption(arg))
-                }
-                if input.is_none() {
-                    input = Some(arg)
-                } else if output.is_none() {
-                    output = Some(arg)
-                } else {
-                    return Err(CliError::UnexpectedArg(arg))
+                _ => {
+                    if arg.starts_with("-") {
+                        return Err(CliError::UnknownOption(arg))
+                    }
+                    if input.is_none() {
+                        input = Some(arg)
+                    } else if output.is_none() {
+                        output = Some(arg)
+                    } else {
+                        return Err(CliError::UnexpectedArg(arg))
+                    }
                 }
             }
         }
