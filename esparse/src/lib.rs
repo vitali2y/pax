@@ -1,5 +1,6 @@
 #![cfg_attr(test, feature(test))]
 
+#![warn(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/esparse/0.0.1")]
 
 extern crate memchr;

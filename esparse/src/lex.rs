@@ -50,6 +50,7 @@ impl<'f, 's> Tok<'f, 's> {
 /// The content of a token.
 ///
 /// Each token has a type. If the token's contents can vary, it also includes one or more string slices of the source code. The slices cover the full extent of the token and are direct slices of code, including delimiters, quotation marks, prefixes, escape sequences, etc.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tt<'s> {
     /// An identifier.
