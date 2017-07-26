@@ -1,3 +1,6 @@
+//! A fast JavaScript parser. Currently only a [lexical analyzer](lex/index.html).
+//!
+
 #![cfg_attr(test, feature(test))]
 
 #![warn(missing_docs)]
