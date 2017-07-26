@@ -274,7 +274,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
         result.push_str(&range[last_pos..bs_pos]);
         let esc_pos = bs_pos + 1;
         if esc_pos >= len {
-            panic!("str_lit_value got '\\' at end of string");
+            return Err(ParseStrLitError::InvalidEscape)
         }
         last_pos = esc_pos + 1;
         match bytes[esc_pos] {
