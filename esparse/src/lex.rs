@@ -23,23 +23,58 @@ impl<'f, 's> Tok<'f, 's> {
     }
 }
 
+/// The content of a token.
+///
+/// Each token has a type. If the token's contents can vary, it also includes one or more string slices of the source code. The slices cover the full extent of the token and are direct slices of code, including delimiters, quotation marks, prefixes, escape sequences, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tt<'s> {
+    /// An identifier.
     Id(&'s str),
 
+    /// A single-quoted string literal.
+    ///
+    /// The slice includes both quotation marks and escape sequences exactly as they appear in the source code. Use [str_lit_value](fn.str_lit_value.html) to extract the string value of the literal.
     StrLitSgl(&'s str),
+    /// A double-quoted string literal.
+    ///
+    /// The slice includes both quotation marks and escape sequences exactly as they appear in the source code. Use [str_lit_value](fn.str_lit_value.html) to extract the string value of the literal.
     StrLitDbl(&'s str),
 
+    /// A regular expression literal.
+    ///
+    /// The first slice contains the regular expression source (including both slashes), and the second contains the flags.
     RegExpLit(&'s str, &'s str),
 
+    /// A binary numeric literal.
+    ///
+    /// The slice includes the `0b` or `0B` prefix.
     NumLitBin(&'s str),
+    /// An octal numeric literal.
+    ///
+    /// The slice includes the `0o` or `0O` prefix.
     NumLitOct(&'s str),
+    /// A decimal numeric literal.
     NumLitDec(&'s str),
+    /// A hexadecimal numeric literal.
+    ///
+    /// The slice includes the `0x` or `0X` prefix.
     NumLitHex(&'s str),
 
+    /// A template without substitutions (e.g., `\`template\``).
+    ///
+    /// The slice includes both backticks.
     TemplateNoSub(&'s str),
+    /// The first literal part of a template with substitutions (e.g., `\`template${`).
+    ///
+    /// The slice includes the opening backtick and the `$[` sigil.
     TemplateStart(&'s str),
+    /// A middle part of a template with substitutions (e.g., `}template${`).
+    ///
+    /// The slice includes the `}` and `$[` sigils.
     TemplateMiddle(&'s str),
+    /// A middle part of a template with substitutions (e.g., `}template\``).
+    ///
+    /// The slice includes the `}` sigil and the closing backtick.
     TemplateEnd(&'s str),
 
     // Punctuator ::
@@ -91,6 +126,9 @@ pub enum Tt<'s> {
 
     // TODO strict mode future reserved words
 
+    /// The end-of-file token.
+    ///
+    /// This token is emitted endlessly after the lexical analyzer has reached the end of the source code.
     Eof,
 }
 
