@@ -45,8 +45,8 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
                             return Some(lex::str_lit_value(s).unwrap())
                         },
                         _ => {
-                            // panic!("weird require call {:?}", lex.here());
-                        }
+                            // panic!("dynamic require call {:?}", lex.here());
+                        },
                     ),
                     _ => {
                         // panic!("dynamic require {:?}", lex.here())
@@ -427,6 +427,7 @@ enum Resolved {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct InputOptions {
     es6_syntax: bool,
+    es6_syntax_everywhere: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -631,6 +632,7 @@ fn run() -> Result<(), CliError> {
     let mut output = None;
     let mut map = None;
     let mut es6_syntax = false;
+    let mut es6_syntax_everywhere = false;
     let mut map_inline = false;
     let mut no_map = false;
     let mut watch = false;
@@ -644,6 +646,10 @@ fn run() -> Result<(), CliError> {
                 "-I" | "--map-inline" => map_inline = true,
                 "-M" | "--no-map" => no_map = true,
                 "-e" | "--es-syntax" => es6_syntax = true,
+                "-E" | "--es-syntax-everywhere" => {
+                    es6_syntax = true;
+                    es6_syntax_everywhere = true;
+                }
                 "-m" | "--map" => {
                     if map.is_some() {
                         return Err(CliError::DuplicateOption(arg))
@@ -709,6 +715,7 @@ fn run() -> Result<(), CliError> {
 
     let input_options = InputOptions {
         es6_syntax,
+        es6_syntax_everywhere,
     };
 
     let entry_point = Worker::resolve_main(input_options, input_dir, &input)?;
@@ -816,6 +823,10 @@ Options:
         namespace object has a single `default` binding which reflects the
         value of `module.exports`. CJS files can require ESM files, in which
         case the resultant object is the namespace object.
+
+    -E, --es-syntax-everywhere
+        Implies --es-syntax. Allow ECMAScript module syntax in .js files.
+        CJS-style require() calls are also allowed.
 
     -h, --help
         Print this message.
@@ -1168,7 +1179,7 @@ impl Worker {
 
             let ext = module.extension();
             if matches!(ext, Some(s) if s == "mjs") {
-                let module = es6::module_to_cjs(&mut lexer)?;
+                let module = es6::module_to_cjs(&mut lexer, false)?;
                 // println!("{:#?}", module);
                 deps = module.deps;
                 source_prefix = module.source_prefix;
@@ -1178,6 +1189,14 @@ impl Worker {
             } else if matches!(ext, Some(s) if s == "json") {
                 source_prefix = "module.exports =".to_owned();;
                 source_suffix = String::new();
+
+            } else if self.input_options.es6_syntax_everywhere {
+                let module = es6::module_to_cjs(&mut lexer, true)?;
+                // println!("{:#?}", module);
+                deps = module.deps;
+                source_prefix = module.source_prefix;
+                source_suffix = module.source_suffix;
+                new_source = Some(module.source);
 
             } else {
                 while let Some(path) = scan_for_require(&mut lexer) {
