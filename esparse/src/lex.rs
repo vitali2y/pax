@@ -1,4 +1,6 @@
 //! Lexical analysis (tokenizing/lexing).
+//!
+//! The [`Lexer`](struct.Lexer.html) splits its input source code into a sequence of input elements called tokens, represented by the [`Tok`](struct.Tok.html) structure. It also removes whitespace and comments and attaches them to the next token.
 
 use std::{char, mem, fmt};
 use std::borrow::Cow;
