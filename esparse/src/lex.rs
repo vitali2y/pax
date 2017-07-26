@@ -4363,6 +4363,7 @@ mod test {
     use super::*;
     use std::{fs, panic};
     use std::io::prelude::*;
+    use std::borrow::Cow;
 
     fn lex_test(source: &str, expected: &[Tt]) {
         let mut lexer = Lexer::new("<input>", source);
@@ -5245,6 +5246,31 @@ mod test {
             Tt::Yield,
             Tt::RegExpLit("/re/", ""),
         ]);
+    }
+
+    #[test]
+    fn test_str_lit_value_basic() {
+        assert_eq!(str_lit_value(r"''"), Ok(Cow::Borrowed("")));
+        assert_eq!(str_lit_value(r"'c'"), Ok(Cow::Borrowed("c")));
+    }
+
+    #[test]
+    fn test_str_lit_value_continuations() {
+        assert_eq!(str_lit_value("'a\\\nb'"), Ok(Cow::Owned("ab".to_owned())));
+    }
+
+    #[test]
+    fn test_str_lit_value_escapes() {
+        assert_eq!(str_lit_value(r"'\b'"), Ok(Cow::Owned("\u{0008}".to_owned())));
+        assert_eq!(str_lit_value(r"'\t'"), Ok(Cow::Owned("\u{0009}".to_owned())));
+        assert_eq!(str_lit_value(r"'\n'"), Ok(Cow::Owned("\u{000A}".to_owned())));
+        assert_eq!(str_lit_value(r"'\v'"), Ok(Cow::Owned("\u{000B}".to_owned())));
+        assert_eq!(str_lit_value(r"'\f'"), Ok(Cow::Owned("\u{000C}".to_owned())));
+        assert_eq!(str_lit_value(r"'\r'"), Ok(Cow::Owned("\u{000D}".to_owned())));
+        assert_eq!(str_lit_value(r#"'\"'"#), Ok(Cow::Owned("\"".to_owned())));
+        assert_eq!(str_lit_value(r"'\''"), Ok(Cow::Owned("'".to_owned())));
+        assert_eq!(str_lit_value(r"'\\'"), Ok(Cow::Owned("\\".to_owned())));
+        assert_eq!(str_lit_value(r"'\x65'"), Ok(Cow::Owned("e".to_owned())));
     }
 
     fn bench_lex_file(b: &mut test::Bencher, filename: &str) {
