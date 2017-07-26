@@ -103,6 +103,9 @@ impl<'a, 'b> Writer<'a, 'b> {
                 w.write_all(b"\n")?;
             }
             w.write_all(info.source.body.as_bytes())?;
+            if !matches!(info.source.body.chars().last(), None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')) {
+                w.write_all(b"\n")?;
+            }
             if !info.source.suffix.is_empty() {
                 w.write_all(info.source.suffix.as_bytes())?;
             }
@@ -195,6 +198,9 @@ impl<'a, 'b> Writer<'a, 'b> {
                     w.write_all(b"ACA")?;
                     line += 1;
                 }
+                w.write_all(b";")?;
+            }
+            if !matches!(module.source.body.chars().last(), None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')) {
                 w.write_all(b";")?;
             }
             for _ in 0..count_lines(&module.source.suffix)-1 {
@@ -548,6 +554,10 @@ fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_out
             writer.write_to(&mut handle)?;
         }
         _ => {
+            let output = Path::new(output);
+            if let Some(parent) = output.parent() {
+                fs::create_dir_all(parent)?;
+            }
             let file = fs::File::create(&output)?;
             let mut buf_writer = io::BufWriter::new(file);
             writer.write_to(&mut buf_writer)?;
@@ -559,6 +569,9 @@ fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_out
             // handled in Writer::write_to()
         }
         SourceMapOutput::File(ref path, _) => {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
             let file = fs::File::create(path)?;
             let mut buf_writer = io::BufWriter::new(file);
             writer.write_map_to(&mut buf_writer)?;
@@ -628,6 +641,8 @@ impl Iterator for ExpandArg {
 // impl iter::FusedIterator for ExpandArg {}
 
 fn run() -> Result<(), CliError> {
+    let entry_inst = time::Instant::now();
+
     let mut input = None;
     let mut output = None;
     let mut map = None;
@@ -721,16 +736,20 @@ fn run() -> Result<(), CliError> {
     let entry_point = Worker::resolve_main(input_options, input_dir, &input)?;
 
     if watch {
+        let mut modules = bundle(&entry_point, input_options, &output, &map_output)?;
+        let elapsed = entry_inst.elapsed();
+        let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
+
         let (tx, rx) = mpsc::channel();
         let debounce_dur = time::Duration::from_millis(5);
         let mut watcher = notify::raw_watcher(tx.clone())?;
 
-        let mut modules = bundle(&entry_point, input_options, &output, &map_output)?;
         for path in modules.keys() {
             watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
         }
 
-        eprintln!("ready");
+        eprintln!("ready in {} ms", ms);
+
         loop {
             let first_event = rx.recv().expect("notify::watcher disconnected");
             thread::sleep(debounce_dur);

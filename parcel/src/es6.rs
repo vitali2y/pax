@@ -112,7 +112,7 @@ impl fmt::Display for Error {
     }
 }
 
-pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, parse_require: bool) -> Result<CjsModule<'s>> {
+pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) -> Result<CjsModule<'s>> {
     let mut source = String::new();
     let mut deps = HashSet::new();
     let mut imports = Vec::new();
@@ -128,25 +128,32 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, parse_require: bool) 
                 let import = parse_import(lex, &mut source)?;
                 imports.push(import);
             },
-            Tt::Id("require") if parse_require => eat!(lex,
-                Tt::Lparen => eat!(lex,
-                    Tt::StrLitSgl(dep_source) |
-                    Tt::StrLitDbl(dep_source) => eat!(lex,
-                        Tt::Rparen => {
-                            deps.insert(match lex::str_lit_value(dep_source) {
-                                Ok(dep) => dep,
-                                Err(error) => return Err(Error {
-                                    kind: ErrorKind::ParseStrLitError(error),
-                                    loc: tok.span.start,
-                                }),
-                            });
-                        },
+            Tt::Id("require") if allow_require => {
+                let start_pos = tok.span.start.pos;
+                eat!(lex,
+                    Tt::Lparen => eat!(lex,
+                        Tt::StrLitSgl(dep_source) |
+                        Tt::StrLitDbl(dep_source) => eat!(lex,
+                            Tt::Rparen => {
+                                deps.insert(match lex::str_lit_value(dep_source) {
+                                    Ok(dep) => dep,
+                                    Err(error) => return Err(Error {
+                                        kind: ErrorKind::ParseStrLitError(error),
+                                        loc: tok.span.start,
+                                    }),
+                                });
+                            },
+                            _ => {},
+                        ),
                         _ => {},
                     ),
                     _ => {},
-                ),
-                _ => {},
-            ),
+                );
+
+                let here = lex.here();
+                let end_pos = here.span.start.pos - here.ws_before.len();
+                source.push_str(&lex.input()[start_pos..end_pos]);
+            },
             Tt::Eof => break,
             _ => {
                 let tok = lex.advance();
@@ -200,7 +207,11 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, parse_require: bool) 
         write!(source_prefix, "\n  }}))\n}}()) ").unwrap();
     }
 
-    write!(source_prefix, "!function() {{\n'use strict';\n").unwrap();
+    write!(source_prefix, "~function() {{").unwrap();
+
+    if !allow_require {
+        write!(source_prefix, "\n'use strict';\n").unwrap();
+    }
 
     if !exports.is_empty() {
         write!(source_prefix, "Object.defineProperties(exports, {{\n").unwrap();
