@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Nathan"]
 
 [dependencies]
-esparse = { path = ".." }
+esparse = { path = "../esparse" }
 crossbeam = "0.2"
 num_cpus = "1.6"
 matches = "0.1"
