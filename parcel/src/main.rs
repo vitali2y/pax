@@ -411,9 +411,9 @@ enum ModuleState {
     Loaded(Module),
 }
 #[derive(Debug)]
-struct Module {
-    source: Source,
-    deps: HashMap<String, Resolved>,
+pub struct Module {
+    pub source: Source,
+    pub deps: HashMap<String, Resolved>,
 }
 #[derive(Debug)]
 struct ModuleInfo {
@@ -421,27 +421,27 @@ struct ModuleInfo {
     deps: Vec<String>,
 }
 #[derive(Debug)]
-struct Source {
-    prefix: String,
-    body: String,
-    suffix: String,
-    original: Option<String>,
+pub struct Source {
+    pub prefix: String,
+    pub body: String,
+    pub suffix: String,
+    pub original: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Resolved {
+pub enum Resolved {
     Core,
     // CoreWithSubst(PathBuf),
     Normal(PathBuf),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct InputOptions {
-    es6_syntax: bool,
-    es6_syntax_everywhere: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct InputOptions {
+    pub es6_syntax: bool,
+    pub es6_syntax_everywhere: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum SourceMapOutput<'a> {
+pub enum SourceMapOutput<'a> {
     Suppressed,
     Inline,
     File(PathBuf, &'a Path),
@@ -459,7 +459,7 @@ impl ModuleState {
     }
 }
 
-fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_output: &SourceMapOutput) -> Result<HashMap<PathBuf, Module>, CliError> {
+pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_output: &SourceMapOutput) -> Result<HashMap<PathBuf, Module>, CliError> {
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
@@ -855,7 +855,7 @@ Options:
 }
 
 #[derive(Debug)]
-enum CliError {
+pub enum CliError {
     Help,
     MissingFileName,
     DuplicateOption(String),
