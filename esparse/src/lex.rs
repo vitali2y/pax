@@ -278,6 +278,8 @@ impl<'s> fmt::Display for Tt<'s> {
 ///
 /// Returns [`ParseStrLitError::InvalidEscape`](enum.ParseStrLitError.html#variant.InvalidEscape) if the given source slice is syntactically invalid.
 ///
+/// # Examples
+///
 /// ```
 /// use esparse::lex;
 /// use std::borrow::Cow;
