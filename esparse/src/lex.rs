@@ -8,15 +8,23 @@ use memchr;
 
 use ast::{Span, Loc};
 
+/// A token (an atomic parsing unit).
+///
+/// Tokens have a [type](#structfield.tt) represented by the [`Tt`](enum.Tt.html) enumeration. They also have [location information](#structfield.span) and track the [whitespace and comments](#structfield.ws_before) that appeared before them in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tok<'f, 's> {
+    /// The token type.
     pub tt: Tt<'s>,
+    /// The source region this token covers.
     pub span: Span<'f>,
+    /// Any whitespace and comments that appeared directly before this token.
     pub ws_before: &'s str,
+    /// `true` if [`ws_before`](#structfield.ws_before) contains a line terminator.
     pub nl_before: bool,
 }
 
 impl<'f, 's> Tok<'f, 's> {
+    /// Creates a new `Token` with no preceding whitespace.
     pub fn new(tt: Tt<'s>, span: Span<'f>) -> Self {
         Tok {
             tt,
