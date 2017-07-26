@@ -1,3 +1,5 @@
+#![cfg_attr(test, feature(test))]
+
 extern crate esparse;
 extern crate crossbeam;
 extern crate num_cpus;
