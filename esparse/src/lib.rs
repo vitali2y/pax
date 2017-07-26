@@ -2,7 +2,10 @@
 
 extern crate memchr;
 
+pub mod ast;
 pub mod lex;
+
+pub use ast::{Loc, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParseOptions<'a> {

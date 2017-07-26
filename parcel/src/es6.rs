@@ -2,6 +2,8 @@ use std::fmt;
 use std::fmt::Write;
 use std::borrow::Cow;
 use std::collections::HashSet;
+
+use esparse;
 use esparse::lex::{self, Tt};
 
 macro_rules! expected {
@@ -90,7 +92,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    loc: lex::Loc,
+    loc: esparse::Loc,
 }
 #[derive(Debug)]
 pub enum ErrorKind {
