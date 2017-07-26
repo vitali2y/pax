@@ -1,4 +1,4 @@
-use std::{char, mem};
+use std::{char, mem, fmt};
 use std::borrow::Cow;
 use memchr;
 
@@ -141,6 +141,119 @@ pub enum Tt<'s> {
     // TODO strict mode future reserved words
 
     Eof,
+}
+
+impl<'s> fmt::Display for Tt<'s> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Tt::Id(s) |
+            Tt::StrLitSgl(s) |
+            Tt::StrLitDbl(s) |
+            Tt::NumLitBin(s) |
+            Tt::NumLitOct(s) |
+            Tt::NumLitDec(s) |
+            Tt::NumLitHex(s) |
+            Tt::TemplateNoSub(s) |
+            Tt::TemplateStart(s) |
+            Tt::TemplateMiddle(s) |
+            Tt::TemplateEnd(s) => write!(f, "{}", s),
+
+            Tt::RegExpLit(s, t) => write!(f, "{}{}", s, t),
+
+            Tt::Lbrace => write!(f, "{{"),
+            Tt::Lparen => write!(f, "("),
+            Tt::Rparen => write!(f, ")"),
+            Tt::Lbracket => write!(f, "["),
+            Tt::Rbracket => write!(f, "]"),
+            Tt::Dot => write!(f, "."),
+            Tt::DotDotDot => write!(f, "..."),
+            Tt::Semi => write!(f, ";"),
+            Tt::Comma => write!(f, ","),
+            Tt::Lt => write!(f, "<"),
+            Tt::Gt => write!(f, ">"),
+            Tt::LtEq => write!(f, "<="),
+            Tt::GtEq => write!(f, ">="),
+            Tt::EqEq => write!(f, "=="),
+            Tt::BangEq => write!(f, "!="),
+            Tt::EqEqEq => write!(f, "==="),
+            Tt::BangEqEq => write!(f, "!=="),
+            Tt::Plus => write!(f, "+"),
+            Tt::Minus => write!(f, "-"),
+            Tt::Star => write!(f, "*"),
+            Tt::Percent => write!(f, "%"),
+            Tt::StarStar => write!(f, "**"),
+            Tt::PlusPlus => write!(f, "++"),
+            Tt::MinusMinus => write!(f, "--"),
+            Tt::LtLt => write!(f, "<<"),
+            Tt::GtGt => write!(f, ">>"),
+            Tt::GtGtGt => write!(f, ">>>"),
+            Tt::And => write!(f, "&"),
+            Tt::Or => write!(f, "|"),
+            Tt::Circumflex => write!(f, "^"),
+            Tt::Bang => write!(f, "!"),
+            Tt::Tilde => write!(f, "~"),
+            Tt::AndAnd => write!(f, "&&"),
+            Tt::OrOr => write!(f, "||"),
+            Tt::Question => write!(f, "?"),
+            Tt::Colon => write!(f, ":"),
+            Tt::Eq => write!(f, "="),
+            Tt::PlusEq => write!(f, "+="),
+            Tt::MinusEq => write!(f, "-="),
+            Tt::StarEq => write!(f, "*="),
+            Tt::PercentEq => write!(f, "%="),
+            Tt::StarStarEq => write!(f, "**="),
+            Tt::LtLtEq => write!(f, "<<="),
+            Tt::GtGtEq => write!(f, ">>="),
+            Tt::GtGtGtEq => write!(f, ">>>="),
+            Tt::AndEq => write!(f, "&="),
+            Tt::OrEq => write!(f, "|="),
+            Tt::CircumflexEq => write!(f, "^="),
+            Tt::EqGt => write!(f, "=>"),
+            Tt::Slash => write!(f, "/"),
+            Tt::SlashEq => write!(f, "/="),
+            Tt::Rbrace => write!(f, "}}"),
+
+            Tt::Null => write!(f, "null"),
+            Tt::True => write!(f, "true"),
+            Tt::False => write!(f, "false"),
+            Tt::Await => write!(f, "await"),
+            Tt::Break => write!(f, "break"),
+            Tt::Case => write!(f, "case"),
+            Tt::Catch => write!(f, "catch"),
+            Tt::Class => write!(f, "class"),
+            Tt::Const => write!(f, "const"),
+            Tt::Continue => write!(f, "continue"),
+            Tt::Debugger => write!(f, "debugger"),
+            Tt::Default => write!(f, "default"),
+            Tt::Delete => write!(f, "delete"),
+            Tt::Do => write!(f, "do"),
+            Tt::Else => write!(f, "else"),
+            Tt::Export => write!(f, "export"),
+            Tt::Extends => write!(f, "extends"),
+            Tt::Finally => write!(f, "finally"),
+            Tt::For => write!(f, "for"),
+            Tt::Function => write!(f, "function"),
+            Tt::If => write!(f, "if"),
+            Tt::Import => write!(f, "import"),
+            Tt::In => write!(f, "in"),
+            Tt::Instanceof => write!(f, "instanceof"),
+            Tt::New => write!(f, "new"),
+            Tt::Return => write!(f, "return"),
+            Tt::Super => write!(f, "super"),
+            Tt::Switch => write!(f, "switch"),
+            Tt::This => write!(f, "this"),
+            Tt::Throw => write!(f, "throw"),
+            Tt::Try => write!(f, "try"),
+            Tt::Typeof => write!(f, "typeof"),
+            Tt::Var => write!(f, "var"),
+            Tt::Void => write!(f, "void"),
+            Tt::While => write!(f, "while"),
+            Tt::With => write!(f, "with"),
+            Tt::Yield => write!(f, "yield"),
+
+            Tt::Eof => Ok(()),
+        }
+    }
 }
 
 // TODO better errors
