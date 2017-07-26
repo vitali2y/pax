@@ -643,7 +643,7 @@ fn run() -> Result<(), CliError> {
                 "-w" | "--watch" => watch = true,
                 "-I" | "--map-inline" => map_inline = true,
                 "-M" | "--no-map" => no_map = true,
-                "-e" | "--es6-syntax" => es6_syntax = true,
+                "-e" | "--es-syntax" => es6_syntax = true,
                 "-m" | "--map" => {
                     if map.is_some() {
                         return Err(CliError::DuplicateOption(arg))
@@ -801,7 +801,7 @@ Options:
     -w, --watch
         Watch for changes to <input> and its dependencies.
 
-    -e, --es6-syntax
+    -e, --es-syntax
         Support .mjs files with ECMAScript module syntax:
 
             import itt from 'itt'
@@ -812,7 +812,10 @@ Options:
             const itt = require('itt')
             exports.greeting = 'Hello, world!'
 
-        .mjs (ESM) files can import .js (CJS) files, in which case the namespace object has a single `default` binding which reflects the value of `module.exports`. CJS files can require ESM files, in which case the resultant object is the namespace object.
+        .mjs (ESM) files can import .js (CJS) files, in which case the
+        namespace object has a single `default` binding which reflects the
+        value of `module.exports`. CJS files can require ESM files, in which
+        case the resultant object is the namespace object.
 
     -h, --help
         Print this message.
