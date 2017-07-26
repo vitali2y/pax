@@ -209,7 +209,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
 
     write!(source_prefix, "~function() {{").unwrap();
 
-    if !allow_require {
+    if !allow_require || !exports.is_empty() || !imports.is_empty() {
         write!(source_prefix, "\n'use strict';\n").unwrap();
     }
 
