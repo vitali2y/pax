@@ -3,5 +3,9 @@ name = "esparse"
 version = "0.1.0"
 authors = ["Nathan"]
 
+exclude = [
+  "private/*"
+]
+
 [dependencies]
 memchr = "1.0.1"
