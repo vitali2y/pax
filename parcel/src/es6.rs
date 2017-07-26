@@ -8,6 +8,7 @@ macro_rules! expected {
     ($lex:expr, $msg:expr) => {
         return Err(Error {
             kind: ErrorKind::Expected($msg),
+            // TODO span with file name, but error shouldn't have a reference
             loc: $lex.here().span.start,
         })
     };
@@ -15,7 +16,7 @@ macro_rules! expected {
 
 #[derive(Debug)]
 pub enum Export<'s> {
-    Default,
+    Default(&'s str),
     AllFrom(Cow<'s, str>),
     Named(Vec<ExportSpec<'s>>),
     NamedFrom(Vec<ExportSpec<'s>>, Cow<'s, str>),
@@ -101,8 +102,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
             ErrorKind::Expected(s) => write!(f, "expected {}", s)?,
-            // TODO better error message
-            ErrorKind::ParseStrLitError(_) => f.write_str("invalid string literal")?,
+            ErrorKind::ParseStrLitError(ref error) => write!(f, "invalid string literal: {}", error)?,
         }
         writeln!(f,
             " at <?>:{},{}",
@@ -206,10 +206,11 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, parse_require: bool) 
         write!(source_prefix, "Object.defineProperties(exports, {{\n").unwrap();
         for export in &exports {
             match *export {
-                Export::Default => {
+                Export::Default(bind) => {
                     write!(
                         source_prefix,
-                        "\n  default: {{get() {{return __default}}, enumerable: true}},",
+                        "\n  default: {{get() {{return {}}}, enumerable: true}},",
+                        bind,
                     ).unwrap();
                 }
                 Export::AllFrom(_) => unimplemented!(),
@@ -244,8 +245,31 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, parse_require: bool) 
 fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Result<Export<'s>> {
     eat!(lex => tok { source.push_str(tok.ws_before) },
         Tt::Default => {
-            source.push_str("const __default = ");
-            Ok(Export::Default)
+            eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+                Tt::Class => {
+                    let name = eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+                        Tt::Id(name) => name,
+                        _ => expected!(lex, "class name"),
+                    );
+                    Ok(Export::Default(name))
+                },
+                Tt::Function => {
+                    eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+                        Tt::Star => {},
+                        _ => {},
+                    );
+                    let name = eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+                        Tt::Id(name) => name,
+                        _ => expected!(lex, "function name"),
+                    );
+                    Ok(Export::Default(name))
+                },
+                _ => {
+                    source.push_str("const __default = ");
+                    // skip_expr(lex, Prec::NoComma)?;
+                    Ok(Export::Default("__default"))
+                },
+            )
         },
         Tt::Star => eat!(lex => tok { source.push_str(tok.ws_before) },
             Tt::Id("from") => eat!(lex => tok { source.push_str(tok.ws_before) },
@@ -356,22 +380,22 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                 Tt::Id(name) => name,
                 _ => expected!(lex, "function name"),
             );
-            eat!(lex,
-                Tt::Lparen => skip_balanced(lex,
-                    |tt| tt == Tt::Lparen,
-                    |tt| tt == Tt::Rparen,
-                    "')'",
-                )?,
-                _ => expected!(lex, "formal parameter list"),
-            );
-            eat!(lex,
-                Tt::Lbrace => skip_balanced(lex,
-                    |tt| tt == Tt::Lbrace,
-                    |tt| tt == Tt::Rbrace,
-                    "'}'",
-                )?,
-                _ => expected!(lex, "function body"),
-            );
+            // eat!(lex,
+            //     Tt::Lparen => skip_balanced(lex,
+            //         |tt| tt == Tt::Lparen,
+            //         |tt| tt == Tt::Rparen,
+            //         "')'",
+            //     )?,
+            //     _ => expected!(lex, "formal parameter list"),
+            // );
+            // eat!(lex,
+            //     Tt::Lbrace => skip_balanced(lex,
+            //         |tt| tt == Tt::Lbrace,
+            //         |tt| tt == Tt::Rbrace,
+            //         "'}'",
+            //     )?,
+            //     _ => expected!(lex, "function body"),
+            // );
 
             let here = lex.here();
             let end_pos = here.span.start.pos - here.ws_before.len();
@@ -379,7 +403,32 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
 
             Ok(Export::Named(vec![ExportSpec::same(name)]))
         },
-        // TODO Tt::Class =>
+        Tt::Class => {
+            let start_pos = tok.span.start.pos;
+
+            let name = eat!(lex,
+                Tt::Id(name) => name,
+                _ => expected!(lex, "class name"),
+            );
+            // eat!(lex,
+            //     Tt::Extends => skip_expr(lex, Prec::NoComma)?,
+            //     _ => {},
+            // );
+            // eat!(lex,
+            //     Tt::Lbrace => skip_balanced(lex,
+            //         |tt| tt == Tt::Lbrace,
+            //         |tt| tt == Tt::Rbrace,
+            //         "'}'",
+            //     )?,
+            //     _ => expected!(lex, "class body"),
+            // );
+
+            let here = lex.here();
+            let end_pos = here.span.start.pos - here.ws_before.len();
+            source.push_str(&lex.input()[start_pos..end_pos]);
+
+            Ok(Export::Named(vec![ExportSpec::same(name)]))
+        },
         // TODO Tt::Id("async") =>
         _ => expected!(lex, "keyword 'default' or '*' or '{' or declaration"),
     )

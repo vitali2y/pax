@@ -98,13 +98,13 @@ impl<'a, 'b> Writer<'a, 'b> {
                 id = id,
                 deps = deps,
             )?;
-            if !info.source_prefix.is_empty() {
-                w.write_all(info.source_prefix.as_bytes())?;
+            if !info.source.prefix.is_empty() {
+                w.write_all(info.source.prefix.as_bytes())?;
                 w.write_all(b"\n")?;
             }
-            w.write_all(info.source.as_bytes())?;
-            if !info.source_suffix.is_empty() {
-                w.write_all(info.source_suffix.as_bytes())?;
+            w.write_all(info.source.body.as_bytes())?;
+            if !info.source.suffix.is_empty() {
+                w.write_all(info.source.suffix.as_bytes())?;
             }
             write!(w, "}}")?;
         }
@@ -163,7 +163,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             if comma {
                 w.write_all(b",")?;
             }
-            write_json_string(w, &module.source)?;
+            write_json_string(w, module.source.original.as_ref().unwrap_or_else(|| &module.source.body))?;
             comma = true;
         }
         w.write_all(r#"],"names":[],"mappings":""#.as_bytes())?;
@@ -177,10 +177,10 @@ impl<'a, 'b> Writer<'a, 'b> {
         let mut buf = [0u8; 13];
         for (index, &(_, module)) in modules.iter().enumerate() {
             w.write_all(b";")?;
-            for _ in 0..count_lines(&module.source_prefix) {
+            for _ in 0..count_lines(&module.source.prefix) {
                 w.write_all(b";")?;
             }
-            for i in 0..count_lines(&module.source) {
+            for i in 0..count_lines(&module.source.body) {
                 w.write_all(b"A")?;
                 if i == 0 {
                     if index == 0 {
@@ -197,7 +197,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                 }
                 w.write_all(b";")?;
             }
-            for _ in 0..count_lines(&module.source_suffix)-1 {
+            for _ in 0..count_lines(&module.source.suffix)-1 {
                 w.write_all(b";")?;
             }
         }
@@ -387,7 +387,6 @@ struct Worker {
     quit: Arc<AtomicBool>,
 }
 
-// TODO use references
 #[derive(Debug)]
 enum Work {
     Resolve { context: PathBuf, name: String },
@@ -405,17 +404,20 @@ enum ModuleState {
 }
 #[derive(Debug)]
 struct Module {
-    source_prefix: String,
-    source: String,
-    source_suffix: String,
+    source: Source,
     deps: HashMap<String, Resolved>,
 }
 #[derive(Debug)]
 struct ModuleInfo {
-    source_prefix: String,
-    source: String,
-    source_suffix: String,
+    source: Source,
     deps: Vec<String>,
+}
+#[derive(Debug)]
+struct Source {
+    prefix: String,
+    body: String,
+    suffix: String,
+    original: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Resolved {
@@ -507,9 +509,7 @@ fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_out
             }
             WorkDone::Include { module, info } => {
                 let old = modules.insert(module.clone(), ModuleState::Loaded(Module {
-                    source_prefix: info.source_prefix,
                     source: info.source,
-                    source_suffix: info.source_suffix,
                     deps: HashMap::new(),
                 }));
                 debug_assert_matches!(old, Some(ModuleState::Loading));
@@ -1017,16 +1017,7 @@ impl Worker {
             None => Err(CliError::EmptyModuleName {
                 context: context.to_owned()
             }),
-            Some(&b'/') => {
-                Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(self.input_options, PathBuf::from(name))?.ok_or_else(|| {
-                        CliError::ModuleNotFound {
-                            context: context.to_owned(),
-                            name: name.to_owned(),
-                        }
-                    })?,
-                ))
-            }
+            // TODO absolute paths on windows?
             Some(&b'.') => {
                 let mut dir = context.to_owned();
                 let did_pop = dir.pop(); // to directory
@@ -1041,8 +1032,16 @@ impl Worker {
                     })?,
                 ))
             }
-            // TODO support unix-style absolute paths?
-            // TODO absolute paths on windows
+            Some(&b'/') => {
+                Ok(Resolved::Normal(
+                    Self::resolve_path_or_module(self.input_options, PathBuf::from(name))?.ok_or_else(|| {
+                        CliError::ModuleNotFound {
+                            context: context.to_owned(),
+                            name: name.to_owned(),
+                        }
+                    })?,
+                ))
+            }
             _ => {
                 match name {
                     "assert" | "buffer" | "child_process" | "cluster" | "crypto" | "dgram" | "dns" | "domain" | "events" | "fs" | "http" | "https" | "net" | "os" | "path" | "punycode" | "querystring" | "readline" | "stream" | "string_decoder" | "tls" | "tty" | "url" | "util" | "v8" | "vm" | "zlib" => return Ok(Resolved::Core),
@@ -1167,8 +1166,8 @@ impl Worker {
         let mut buf_reader = io::BufReader::new(file);
         buf_reader.read_to_string(&mut source)?;
         let mut new_source = None;
-        let source_prefix;
-        let source_suffix;
+        let prefix;
+        let suffix;
 
         let deps = {
             let mut deps = HashSet::new();
@@ -1182,28 +1181,28 @@ impl Worker {
                 let module = es6::module_to_cjs(&mut lexer, false)?;
                 // println!("{:#?}", module);
                 deps = module.deps;
-                source_prefix = module.source_prefix;
-                source_suffix = module.source_suffix;
+                prefix = module.source_prefix;
+                suffix = module.source_suffix;
                 new_source = Some(module.source);
 
             } else if matches!(ext, Some(s) if s == "json") {
-                source_prefix = "module.exports =".to_owned();;
-                source_suffix = String::new();
+                prefix = "module.exports =".to_owned();;
+                suffix = String::new();
 
             } else if self.input_options.es6_syntax_everywhere {
                 let module = es6::module_to_cjs(&mut lexer, true)?;
                 // println!("{:#?}", module);
                 deps = module.deps;
-                source_prefix = module.source_prefix;
-                source_suffix = module.source_suffix;
+                prefix = module.source_prefix;
+                suffix = module.source_suffix;
                 new_source = Some(module.source);
 
             } else {
                 while let Some(path) = scan_for_require(&mut lexer) {
                     deps.insert(path);
                 }
-                source_prefix = String::new();
-                source_suffix = String::new();
+                prefix = String::new();
+                suffix = String::new();
             }
 
             deps.into_iter()
@@ -1212,9 +1211,20 @@ impl Worker {
         };
 
         Ok(ModuleInfo {
-            source_prefix,
-            source: new_source.unwrap_or(source),
-            source_suffix,
+            source: match new_source {
+                None => Source {
+                    prefix,
+                    body: source,
+                    suffix,
+                    original: None,
+                },
+                Some(new_source) => Source {
+                    prefix,
+                    body: new_source,
+                    suffix,
+                    original: Some(source),
+                }
+            },
             deps,
         })
     }

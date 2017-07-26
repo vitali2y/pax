@@ -9,3 +9,5 @@ import { a, b, } from './mod'
 import { a as b, c as d } from './mod'
 import def, { a } from './mod'
 import def, * as ns from './mod'
+
+console.log(a)

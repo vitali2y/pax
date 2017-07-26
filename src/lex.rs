@@ -359,9 +359,17 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
     })
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ParseStrLitError {
     InvalidEscape,
+}
+
+impl fmt::Display for ParseStrLitError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ParseStrLitError::InvalidEscape => f.write_str("invalid escape"),
+        }
+    }
 }
 
 #[derive(Debug)]
