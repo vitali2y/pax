@@ -236,7 +236,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                         Ok(module) => module,
                         Err(error) => return Err(Error {
                             kind: ErrorKind::ParseStrLitError(error),
-                            loc: lex.here().span.start, // TODO off by one
+                            loc: tok.span.start,
                         }),
                     }))
                 },
@@ -282,7 +282,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                             Ok(module) => module,
                             Err(error) => return Err(Error {
                                 kind: ErrorKind::ParseStrLitError(error),
-                                loc: lex.here().span.start, // TODO off by one
+                                loc: tok.span.start,
                             }),
                         }))
                     },
@@ -669,7 +669,7 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                 Ok(module) => module,
                 Err(error) => return Err(Error {
                     kind: ErrorKind::ParseStrLitError(error),
-                    loc: lex.here().span.start, // TODO off by one
+                    loc: tok.span.start,
                 }),
             }))
         },
@@ -695,7 +695,7 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                     Ok(module) => module,
                     Err(error) => return Err(Error {
                         kind: ErrorKind::ParseStrLitError(error),
-                        loc: lex.here().span.start, // TODO off by one
+                        loc: tok.span.start,
                     }),
                 },
                 default_bind,
