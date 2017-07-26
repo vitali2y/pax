@@ -1,3 +1,5 @@
+//! Lexical analysis (tokenizing/lexing).
+
 use std::{char, mem, fmt};
 use std::borrow::Cow;
 use memchr;

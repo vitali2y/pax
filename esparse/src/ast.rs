@@ -1,3 +1,5 @@
+//! Syntactic constructs and related data structures.
+
 /// A location in source code.
 ///
 /// Stores both the bytewise [position](#structfield.pos) and the logical [line](#structfield.row) and [character](#structfield.col) numbers.
