@@ -246,6 +246,15 @@ impl<'s> fmt::Display for Tt<'s> {
 }
 
 // TODO better errors
+/// Parses a string literal and extracts its value, stripping the leading and trailing quotation marks and interpreting escape sequences.
+///
+/// ```
+/// use esparse::lex;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(lex::str_lit_value(r"'hello'"), Ok(Cow::Borrowed("hello")));
+/// assert_eq!(lex::str_lit_value(r"'h\x65llo'"), Ok(Cow::Owned("hello".to_owned())));
+/// ```
 pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
     let mut result = String::new();
     let range = &source[1..source.len()-1]; // strip quotation marks
