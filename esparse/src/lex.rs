@@ -409,6 +409,7 @@ impl fmt::Display for ParseStrLitError {
     }
 }
 
+/// A lexical analyzer for JavaScript source code.
 #[derive(Debug)]
 pub struct Lexer<'f, 's> {
     file_name: &'f str,
@@ -444,6 +445,16 @@ macro_rules! eat {
 }
 
 impl<'f, 's> Lexer<'f, 's> {
+    /// Creates a new `Lexer` with the given source code and input file name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use esparse::lex::Lexer;
+    ///
+    /// let lexer = Lexer::new("<input>", "1 + 2");
+    /// println!("The first token is: {:?}", lexer.here());
+    /// ```
     #[inline]
     pub fn new(file_name: &'f str, input: &'s str) -> Self {
         let mut lexer = Lexer {
@@ -457,16 +468,49 @@ impl<'f, 's> Lexer<'f, 's> {
         lexer
     }
 
+    /// The input source code.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use esparse::lex::Lexer;
+    ///
+    /// let lexer = Lexer::new("<input>", "1 + 2");
+    /// assert_eq!(lexer.input(), "1 + 2");
+    /// ```
     #[inline]
     pub fn input(&self) -> &'s str {
         self.stream.input()
     }
 
+    /// The current token.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use esparse::lex::Lexer;
+    ///
+    /// let mut lexer = Lexer::new("<input>", "1 + 2");
+    /// println!("The first token is: {:?}", lexer.here());
+    /// lexer.advance();
+    /// println!("The second token is: {:?}", lexer.here());
+    /// ```
     #[inline]
     pub fn here(&self) -> Tok<'f, 's> {
         self.here
     }
 
+    /// Moves the lexer forward to the next token, returning the current one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use esparse::lex::Lexer;
+    ///
+    /// let mut lexer = Lexer::new("<input>", "1 + 2");
+    /// println!("The first token is: {:?}", lexer.advance());
+    /// println!("The second token is: {:?}", lexer.advance());
+    /// ```
     pub fn advance(&mut self) -> Tok<'f, 's> {
         let tok = self.read_tok();
         mem::replace(&mut self.here, tok)
