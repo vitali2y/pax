@@ -351,6 +351,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
         }
     }
     Ok(if got_bs {
+        result.push_str(&range[last_pos..]);
         Cow::from(result)
     } else {
         Cow::from(range)
