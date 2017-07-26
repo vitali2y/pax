@@ -7,7 +7,6 @@ description = "Fast JavaScript parser. Currently only a lexical analyzer."
 documentation = "https://docs.rs/esparse"
 repository = "https://github.com/nathan/parcel-redux"
 license = "MIT"
-license-file = "LICENSE.md"
 
 exclude = [
   "private/*",

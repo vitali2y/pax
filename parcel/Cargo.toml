@@ -6,7 +6,6 @@ authors = ["Nathan"]
 description = "The fastest JavaScript bundler around."
 repository = "https://github.com/nathan/parcel-redux"
 license = "MIT"
-license-file = "LICENSE.md"
 
 exclude = [
   "examples/*",
