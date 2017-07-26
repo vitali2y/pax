@@ -12,6 +12,9 @@ exclude = [
   "private/*",
 ]
 
+[profile.release]
+lto = true
+
 [dependencies]
 esparse = { version = "0.0.1", path = "../esparse" }
 crossbeam = "0.2"
