@@ -413,6 +413,11 @@ impl<'f, 's> Lexer<'f, 's> {
     }
 
     #[inline]
+    pub fn input(&self) -> &'s str {
+        self.stream.input()
+    }
+
+    #[inline]
     pub fn here(&self) -> Tok<'f, 's> {
         self.here
     }
@@ -4233,6 +4238,11 @@ impl<'s> Stream<'s> {
     #[inline]
     pub fn next(&self) -> Option<char> {
         self.next
+    }
+
+    #[inline]
+    pub fn input(&self) -> &'s str {
+        self.input
     }
 
     #[inline]

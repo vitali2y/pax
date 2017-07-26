@@ -26,6 +26,7 @@ use esparse::lex::{self, Tt};
 
 #[macro_use]
 mod macros;
+mod es6;
 
 const HEAD_JS: &'static str = include_str!("head.js");
 const TAIL_JS: &'static str = include_str!("tail.js");
@@ -66,7 +67,7 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
 struct Writer<'a, 'b> {
     modules: HashMap<PathBuf, Module>,
     entry_point: &'a Path,
-    map_output: &'b SourceMapOutput,
+    map_output: &'b SourceMapOutput<'b>,
 }
 
 impl<'a, 'b> Writer<'a, 'b> {
@@ -88,22 +89,23 @@ impl<'a, 'b> Writer<'a, 'b> {
 
         for (file, info) in self.sorted_modules() {
             let id = Self::name_path(&file);
-            let prefix = if matches!(file.extension(), Some(s) if s == "json") {
-                "module.exports="
-            } else {
-                ""
-            };
             let deps = Self::stringify_deps(&info.deps);
             let filename = Self::js_path(&file);
 
             write!(w,
-                "\n  Parcel.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require) {{{prefix}\n",
+                "\n  Parcel.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require) {{\n",
                 filename = filename,
                 id = id,
                 deps = deps,
-                prefix = prefix,
             )?;
+            if !info.source_prefix.is_empty() {
+                w.write_all(info.source_prefix.as_bytes())?;
+                w.write_all(b"\n")?;
+            }
             w.write_all(info.source.as_bytes())?;
+            if !info.source_suffix.is_empty() {
+                w.write_all(info.source_suffix.as_bytes())?;
+            }
             write!(w, "}}")?;
         }
         let main = Self::name_path(self.entry_point);
@@ -122,9 +124,9 @@ impl<'a, 'b> Writer<'a, 'b> {
                     data = base64::encode(&map),
                 )?;
             }
-            SourceMapOutput::File(ref path) => {
+            SourceMapOutput::File(ref path, output_file) => {
                 // TODO handle error
-                let relative = path.relative_from(self.entry_point.parent().unwrap());
+                let relative = path.relative_from(output_file.parent().unwrap());
                 let map = relative.as_ref().unwrap_or(path);
                 write!(w,
                     "//# sourceMappingURL={map}\n",
@@ -175,6 +177,9 @@ impl<'a, 'b> Writer<'a, 'b> {
         let mut buf = [0u8; 13];
         for (index, &(_, module)) in modules.iter().enumerate() {
             w.write_all(b";")?;
+            for _ in 0..count_lines(&module.source_prefix) {
+                w.write_all(b";")?;
+            }
             for i in 0..count_lines(&module.source) {
                 w.write_all(b"A")?;
                 if i == 0 {
@@ -190,6 +195,9 @@ impl<'a, 'b> Writer<'a, 'b> {
                     w.write_all(b"ACA")?;
                     line += 1;
                 }
+                w.write_all(b";")?;
+            }
+            for _ in 0..count_lines(&module.source_suffix)-1 {
                 w.write_all(b";")?;
             }
         }
@@ -374,6 +382,7 @@ const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456
 #[derive(Debug, Clone)]
 struct Worker {
     tx: mpsc::Sender<Result<WorkDone, CliError>>,
+    input_options: InputOptions,
     queue: Arc<SegQueue<Work>>,
     quit: Arc<AtomicBool>,
 }
@@ -396,12 +405,16 @@ enum ModuleState {
 }
 #[derive(Debug)]
 struct Module {
+    source_prefix: String,
     source: String,
+    source_suffix: String,
     deps: HashMap<String, Resolved>,
 }
 #[derive(Debug)]
 struct ModuleInfo {
+    source_prefix: String,
     source: String,
+    source_suffix: String,
     deps: Vec<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -411,11 +424,16 @@ enum Resolved {
     Normal(PathBuf),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InputOptions {
+    es6_syntax: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum SourceMapOutput {
+enum SourceMapOutput<'a> {
     Suppressed,
     Inline,
-    File(PathBuf),
+    File(PathBuf, &'a Path),
 }
 
 impl ModuleState {
@@ -430,12 +448,13 @@ impl ModuleState {
     }
 }
 
-fn bundle(entry_point: &Path, output: &str, map_output: &SourceMapOutput) -> Result<HashMap<PathBuf, Module>, CliError> {
+fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_output: &SourceMapOutput) -> Result<HashMap<PathBuf, Module>, CliError> {
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
     let worker = Worker {
         tx,
+        input_options,
         quit: Arc::new(AtomicBool::new(false)),
         queue: Arc::new(SegQueue::new()),
     };
@@ -487,7 +506,9 @@ fn bundle(entry_point: &Path, output: &str, map_output: &SourceMapOutput) -> Res
             }
             WorkDone::Include { module, info } => {
                 let old = modules.insert(module.clone(), ModuleState::Loaded(Module {
+                    source_prefix: info.source_prefix,
                     source: info.source,
+                    source_suffix: info.source_suffix,
                     deps: HashMap::new(),
                 }));
                 debug_assert_matches!(old, Some(ModuleState::Loading));
@@ -536,7 +557,7 @@ fn bundle(entry_point: &Path, output: &str, map_output: &SourceMapOutput) -> Res
         SourceMapOutput::Inline => {
             // handled in Writer::write_to()
         }
-        SourceMapOutput::File(ref path) => {
+        SourceMapOutput::File(ref path, _) => {
             let file = fs::File::create(path)?;
             let mut buf_writer = io::BufWriter::new(file);
             writer.write_map_to(&mut buf_writer)?;
@@ -672,7 +693,7 @@ fn run() -> Result<(), CliError> {
     } else {
         match map {
             Some(path) => {
-                SourceMapOutput::File(PathBuf::from(path))
+                SourceMapOutput::File(PathBuf::from(path), Path::new(&output))
             }
             None => {
                 if output == "-" {
@@ -680,23 +701,24 @@ fn run() -> Result<(), CliError> {
                 } else {
                     let mut buf = OsString::from(&output);
                     buf.push(".map");
-                    SourceMapOutput::File(PathBuf::from(buf))
+                    SourceMapOutput::File(PathBuf::from(buf), Path::new(&output))
                 }
             }
         }
     };
 
-    // println!("{} => {} (watching: {:?})", input, output, watch);
-    // println!();
+    let input_options = InputOptions {
+        es6_syntax,
+    };
 
-    let entry_point = Worker::resolve_main(input_dir, &input)?;
+    let entry_point = Worker::resolve_main(input_options, input_dir, &input)?;
 
     if watch {
         let (tx, rx) = mpsc::channel();
         let debounce_dur = time::Duration::from_millis(5);
         let mut watcher = notify::raw_watcher(tx.clone())?;
 
-        let mut modules = bundle(&entry_point, &output, &map_output)?;
+        let mut modules = bundle(&entry_point, input_options, &output, &map_output)?;
         for path in modules.keys() {
             watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
         }
@@ -710,7 +732,7 @@ fn run() -> Result<(), CliError> {
             }
 
             let start_inst = time::Instant::now();
-            let new_modules = bundle(&entry_point, &output, &map_output)?;
+            let new_modules = bundle(&entry_point, input_options, &output, &map_output)?;
 
             let elapsed = start_inst.elapsed();
             let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
@@ -737,7 +759,7 @@ fn run() -> Result<(), CliError> {
             modules = new_modules;
         }
     } else {
-        bundle(&entry_point, &output, &map_output).map(|_| ())
+        bundle(&entry_point, input_options, &output, &map_output).map(|_| ())
     }
 }
 
@@ -780,7 +802,7 @@ Options:
         Watch for changes to <input> and its dependencies.
 
     -e, --es6-syntax
-        Use ES6 (ES2015) module syntax:
+        Support .mjs files with ECMAScript module syntax:
 
             import itt from 'itt'
             export const greeting = 'Hello, world!'
@@ -789,6 +811,8 @@ Options:
 
             const itt = require('itt')
             exports.greeting = 'Hello, world!'
+
+        .mjs (ESM) files can import .js (CJS) files, in which case the namespace object has a single `default` binding which reflects the value of `module.exports`. CJS files can require ESM files, in which case the resultant object is the namespace object.
 
     -h, --help
         Print this message.
@@ -813,6 +837,7 @@ enum CliError {
     Io(io::Error),
     Json(json::Error),
     Notify(notify::Error),
+    Es6(es6::Error),
     Box(Box<Any + Send + 'static>),
 }
 impl From<io::Error> for CliError {
@@ -828,6 +853,11 @@ impl From<json::Error> for CliError {
 impl From<notify::Error> for CliError {
     fn from(inner: notify::Error) -> CliError {
         CliError::Notify(inner)
+    }
+}
+impl From<es6::Error> for CliError {
+    fn from(inner: es6::Error) -> CliError {
+        CliError::Es6(inner)
     }
 }
 impl From<Box<Any + Send + 'static>> for CliError {
@@ -857,6 +887,7 @@ fn main() {
                 CliError::Io(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Json(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Notify(inner) => println!("{}: {}", APP_NAME, inner),
+                CliError::Es6(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Box(inner) => println!("{}: {:?}", APP_NAME, inner),
             }
             1
@@ -939,7 +970,7 @@ impl Worker {
         while let Some(work) = self.get_work() {
             self.tx.send(match work {
                 Work::Resolve { context, name } => {
-                    Self::resolve(&context, &name)
+                    self.resolve(&context, &name)
                     .map(|resolved| WorkDone::Resolve {
                         context,
                         name,
@@ -947,7 +978,7 @@ impl Worker {
                     })
                 }
                 Work::Include { module } => {
-                    Self::include(&module)
+                    self.include(&module)
                     .map(|info| WorkDone::Include {
                         module,
                         info,
@@ -957,16 +988,16 @@ impl Worker {
         }
     }
 
-    fn resolve_main(mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
+    fn resolve_main(input_options: InputOptions, mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
         dir.append_resolving(Path::new(name));
-        Self::resolve_path_or_module(dir)?.ok_or_else(|| {
+        Self::resolve_path_or_module(input_options, dir)?.ok_or_else(|| {
             CliError::MainNotFound {
                 name: name.to_owned(),
             }
         })
     }
 
-    fn resolve(context: &Path, name: &str) -> Result<Resolved, CliError> {
+    fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
         // match name.chars().next() {
         match name.as_bytes().get(0) {
             None => Err(CliError::EmptyModuleName {
@@ -974,7 +1005,7 @@ impl Worker {
             }),
             Some(&b'/') => {
                 Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(PathBuf::from(name))?.ok_or_else(|| {
+                    Self::resolve_path_or_module(self.input_options, PathBuf::from(name))?.ok_or_else(|| {
                         CliError::ModuleNotFound {
                             context: context.to_owned(),
                             name: name.to_owned(),
@@ -988,7 +1019,7 @@ impl Worker {
                 debug_assert!(did_pop);
                 dir.append_resolving(Path::new(name));
                 Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(dir)?.ok_or_else(|| {
+                    Self::resolve_path_or_module(self.input_options, dir)?.ok_or_else(|| {
                         CliError::ModuleNotFound {
                             context: context.to_owned(),
                             name: name.to_owned(),
@@ -1014,7 +1045,7 @@ impl Worker {
                         _ => {}
                     }
                     let new_path = dir.join(&suffix);
-                    match Self::resolve_path_or_module(new_path)? {
+                    match Self::resolve_path_or_module(self.input_options, new_path)? {
                         Some(result) => return Ok(Resolved::Normal(result)),
                         None => {}
                     };
@@ -1027,7 +1058,7 @@ impl Worker {
             }
         }
     }
-    fn resolve_path_or_module(mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path_or_module(input_options: InputOptions, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         path.push("package.json");
         let result = fs::File::open(&path);
         path.pop();
@@ -1051,11 +1082,11 @@ impl Worker {
                 // }
             }
         }
-        Self::resolve_path(path)
+        Self::resolve_path(input_options, path)
     }
 
-    fn resolve_path(mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
-        // println!("resolve_path {}", path.display());
+    fn resolve_path(input_options: InputOptions, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+        // <path>
         if path.is_file() {
             return Ok(Some(path))
         }
@@ -1063,6 +1094,24 @@ impl Worker {
         let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
             path: path.clone(),
         })?.to_owned();
+
+        if input_options.es6_syntax {
+            // <path>.mjs
+            let mut mjs_file_name = file_name.to_owned();
+            mjs_file_name.push(".mjs");
+            path.set_file_name(&mjs_file_name);
+            if path.is_file() {
+                return Ok(Some(path))
+            }
+
+            // <path>/index.mjs
+            path.set_file_name(&file_name);
+            path.push("index.mjs");
+            if path.is_file() {
+                return Ok(Some(path))
+            }
+            path.pop();
+        }
 
         // <path>.js
         let mut new_file_name = file_name.to_owned();
@@ -1098,11 +1147,14 @@ impl Worker {
         Ok(None)
     }
 
-    fn include(module: &Path) -> Result<ModuleInfo, CliError> {
+    fn include(&self, module: &Path) -> Result<ModuleInfo, CliError> {
         let mut source = String::new();
         let file = fs::File::open(module)?;
         let mut buf_reader = io::BufReader::new(file);
         buf_reader.read_to_string(&mut source)?;
+        let mut new_source = None;
+        let source_prefix;
+        let source_suffix;
 
         let deps = {
             let mut deps = HashSet::new();
@@ -1110,17 +1162,37 @@ impl Worker {
 
             // module.to_str().ok_or("<path with invalid utf-8>")
             let mut lexer = lex::Lexer::new(path_string.as_ref(), &source);
-            while let Some(path) = scan_for_require(&mut lexer) {
-                deps.insert(path);
+
+            let ext = module.extension();
+            if matches!(ext, Some(s) if s == "mjs") {
+                let module = es6::module_to_cjs(&mut lexer)?;
+                // println!("{:#?}", module);
+                deps = module.deps;
+                source_prefix = module.source_prefix;
+                source_suffix = module.source_suffix;
+                new_source = Some(module.source);
+
+            } else if matches!(ext, Some(s) if s == "json") {
+                source_prefix = "module.exports =".to_owned();;
+                source_suffix = String::new();
+
+            } else {
+                while let Some(path) = scan_for_require(&mut lexer) {
+                    deps.insert(path);
+                }
+                source_prefix = String::new();
+                source_suffix = String::new();
             }
 
             deps.into_iter()
-            .map(|s| s.into_owned())
-            .collect()
+                .map(|s| s.into_owned())
+                .collect()
         };
 
         Ok(ModuleInfo {
-            source,
+            source_prefix,
+            source: new_source.unwrap_or(source),
+            source_suffix,
             deps,
         })
     }

@@ -45,6 +45,11 @@
     }
     require.deps = {}
     require.main = self
+    require.module = m => {
+      const result = require(m)
+      if (!result.__esModule) result = {default: result}
+      return result
+    }
     // require.resolve = n => {
     //   if (!self) return n
     //   if (n[0] === '.' || n[0] === '/') {
