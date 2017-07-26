@@ -2889,6 +2889,9 @@ impl<'f, 's> Iterator for Lexer<'f, 's> {
     }
 }
 
+/// Generic stream structure for source code.
+///
+/// A `Stream` advances over its input one character at a time, tracking line and column information and providing two characters of lookahead.
 #[derive(Debug)]
 pub struct Stream<'s> {
     input: &'s str,
@@ -2902,6 +2905,7 @@ pub struct Stream<'s> {
 }
 
 impl<'s> Stream<'s> {
+    /// Creates a new `Stream` on the given input.
     pub fn new(input: &'s str) -> Self {
         let mut stream = Stream {
             input,
@@ -2916,11 +2920,13 @@ impl<'s> Stream<'s> {
         stream
     }
 
+    /// `true` if and only if the current character is `c`.
     #[inline]
     pub fn is(&self, c: char) -> bool {
         self.here.map_or(false, |cc| c == cc)
     }
 
+    /// Advances to the next character if and only if the current character is `c`.
     #[inline]
     pub fn eat(&mut self, c: char) -> bool {
         match self.here {
@@ -2932,6 +2938,7 @@ impl<'s> Stream<'s> {
         }
     }
 
+    /// Advances by two characters if and only if the current character is `c` and the next character is `d`.
     #[inline]
     pub fn eat2(&mut self, c: char, d: char) -> bool {
         match self.here {
@@ -2949,6 +2956,7 @@ impl<'s> Stream<'s> {
         }
     }
 
+    /// Advances to the next character until the stream ends or `f` returns `false` for the current character.
     #[inline]
     pub fn skip_while<F>(&mut self, mut f: F) where
     F: FnMut(char) -> bool {
@@ -2982,6 +2990,7 @@ impl<'s> Stream<'s> {
     //     });
     // }
 
+    /// Advances past any binary digits (`0` or `1`).
     #[inline]
     pub fn skip_bin_digits(&mut self) {
         self.skip_while(|c| match c {
@@ -2990,6 +2999,7 @@ impl<'s> Stream<'s> {
         });
     }
 
+    /// Advances past any octal digits (`0` through `7`).
     #[inline]
     pub fn skip_oct_digits(&mut self) {
         self.skip_while(|c| match c {
@@ -2998,6 +3008,7 @@ impl<'s> Stream<'s> {
         });
     }
 
+    /// Advances past any decimal digits (`0` through `9`).
     #[inline]
     pub fn skip_dec_digits(&mut self) {
         self.skip_while(|c| match c {
@@ -3006,6 +3017,7 @@ impl<'s> Stream<'s> {
         });
     }
 
+    /// Advances past any hexadecimal digits (`0` through `9` and `a` through `f`, case insensitive).
     #[inline]
     pub fn skip_hex_digits(&mut self) {
         self.skip_while(|c| match c {
@@ -3014,6 +3026,7 @@ impl<'s> Stream<'s> {
         });
     }
 
+    /// Advances past any characters in the Unicode category [ID_Continue](http://unicode.org/reports/tr31/).
     #[inline]
     pub fn skip_id_continue_chars(&mut self) {
         self.skip_while(|c| match c {
@@ -4209,6 +4222,7 @@ impl<'s> Stream<'s> {
         })
     }
 
+    /// Advances past any whitespace or JavaScript comments.
     #[inline]
     pub fn skip_ws(&mut self) -> (&'s str, bool) {
         let start = self.loc;
@@ -4310,36 +4324,43 @@ impl<'s> Stream<'s> {
         (self.str_from(start.pos), start.row < self.loc.row)
     }
 
+    /// The bytewise position of the current character.
     #[inline]
     pub fn pos(&self) -> usize {
         self.loc.pos
     }
 
+    /// The location of the current character.
     #[inline]
     pub fn loc(&self) -> Loc {
         self.loc
     }
 
+    /// The current character, or `None` if the stream has reached the end of its input.
     #[inline]
     pub fn here(&self) -> Option<char> {
         self.here
     }
 
+    /// The next character, or `None` if the stream has reached the end of its input.
     #[inline]
     pub fn next(&self) -> Option<char> {
         self.next
     }
 
+    /// The entire input source code.
     #[inline]
     pub fn input(&self) -> &'s str {
         self.input
     }
 
+    /// A slice of the input source code from the byte at `start` up to, but not including the first byte of the current character.
     #[inline]
     pub fn str_from(&self, start: usize) -> &'s str {
         &self.input[start..self.loc.pos]
     }
 
+    /// A slice of the input source code from the byte at `start` up to, but not including the byte at `end`.
     #[inline]
     pub fn str_range(&self, start: usize, end: usize) -> &'s str {
         &self.input[start..end]
@@ -4347,6 +4368,7 @@ impl<'s> Stream<'s> {
 
     // TODO pub fn advance_by(&mut self, n: usize) -> &'s str {}
 
+    /// Advances the stream by one character, returning the character advanced past or `None` if the stream was already at the end of its input.
     pub fn advance(&mut self) -> Option<char> {
         match self.here {
             // TODO count both \r and \r\n as one newline
