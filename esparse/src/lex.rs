@@ -248,6 +248,12 @@ impl<'s> fmt::Display for Tt<'s> {
 // TODO better errors
 /// Parses a string literal and extracts its value, stripping the leading and trailing quotation marks and interpreting escape sequences.
 ///
+/// If the slice given contains no escape sequences or line continuations, a subslice is return and nothing is allocated.
+///
+/// # Errors
+///
+/// Returns [`ParseStrLitError::InvalidEscape`](enum.ParseStrLitError.html#variant.InvalidEscape) if the given source slice is syntactically invalid.
+///
 /// ```
 /// use esparse::lex;
 /// use std::borrow::Cow;
