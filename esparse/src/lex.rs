@@ -263,10 +263,10 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
     let len = range.len();
     let mut last_pos = 0;
     let mut got_bs = false;
-    for esc_pos in memchr::Memchr::new(b'\\', bytes) {
+    while let Some(bs_pos) = memchr::memchr(b'\\', &bytes[last_pos..]) {
         got_bs = true;
-        let bs_pos = esc_pos - 1;
         result.push_str(&range[last_pos..bs_pos]);
+        let esc_pos = bs_pos + 1;
         if esc_pos >= len {
             panic!("str_lit_value got '\\' at end of string");
         }
