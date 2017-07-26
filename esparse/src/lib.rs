@@ -7,6 +7,7 @@ pub mod lex;
 
 pub use ast::{Loc, Span};
 
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParseOptions<'a> {
     pub first_line: usize,
@@ -22,12 +23,15 @@ impl<'a> Default for ParseOptions<'a> {
     }
 }
 
+#[doc(hidden)]
 pub fn parse_script(_input: &str, _options: ParseOptions) -> ! {
     unimplemented!()
 }
+#[doc(hidden)]
 pub fn parse_module(_input: &str, _options: ParseOptions) -> ! {
     unimplemented!()
 }
+#[doc(hidden)]
 pub fn parse_expr(_input: &str, _options: ParseOptions) -> ! {
     unimplemented!()
 }
