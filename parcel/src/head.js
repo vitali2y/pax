@@ -46,7 +46,7 @@
     require.deps = {}
     require.main = self
     require.module = m => {
-      const result = require(m)
+      let result = require(m)
       if (!result.__esModule) result = {default: result}
       return result
     }

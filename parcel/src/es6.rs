@@ -138,6 +138,8 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<CjsModule<'
 
     let mut source_prefix = String::new();
 
+    write!(source_prefix, "Object.defineProperty(exports, '__esModule', {{value: true}})\n").unwrap();
+
     if !imports.is_empty() {
         write!(source_prefix, "with (function() {{").unwrap();
         for (i, import) in imports.iter().enumerate() {
@@ -178,32 +180,35 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<CjsModule<'
         }
         write!(source_prefix, "\n  }}))\n}}()) ").unwrap();
     }
+
     write!(source_prefix, "!function() {{\n'use strict';\n").unwrap();
 
-    write!(source_prefix, "Object.defineProperties(exports, {{\n  __esModule: {{value: true}},").unwrap();
-    for export in &exports {
-        match *export {
-            Export::Default => {
-                write!(
-                    source_prefix,
-                    "\n  default: {{get() {{return __default}}, enumerable: true}},",
-                ).unwrap();
-            }
-            Export::AllFrom(_) => unimplemented!(),
-            Export::Named(ref specs) => {
-                for spec in specs {
+    if !exports.is_empty() {
+        write!(source_prefix, "Object.defineProperties(exports, {{\n").unwrap();
+        for export in &exports {
+            match *export {
+                Export::Default => {
                     write!(
                         source_prefix,
-                        "\n  {}: {{get() {{return {}}}, enumerable: true}},",
-                        spec.name,
-                        spec.bind,
+                        "\n  default: {{get() {{return __default}}, enumerable: true}},",
                     ).unwrap();
                 }
+                Export::AllFrom(_) => unimplemented!(),
+                Export::Named(ref specs) => {
+                    for spec in specs {
+                        write!(
+                            source_prefix,
+                            "\n  {}: {{get() {{return {}}}, enumerable: true}},",
+                            spec.name,
+                            spec.bind,
+                        ).unwrap();
+                    }
+                }
+                Export::NamedFrom(_, _) => unimplemented!(),
             }
-            Export::NamedFrom(_, _) => unimplemented!(),
         }
+        write!(source_prefix, "\n}});\n").unwrap();
     }
-    write!(source_prefix, "\n}})\n\n").unwrap();
 
     for import in imports {
         deps.insert(import.module);
@@ -242,6 +247,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
         Tt::Lbrace => {
             let mut exports = Vec::new();
             loop {
+                // TODO export {default as default}
                 eat!(lex => tok { source.push_str(tok.ws_before) },
                     Tt::Id(bind) => eat!(lex => tok { source.push_str(tok.ws_before) },
                         Tt::Id("as") => eat!(lex => tok { source.push_str(tok.ws_before) },
