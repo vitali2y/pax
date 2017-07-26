@@ -1,8 +1,13 @@
 [package]
 name = "esparse"
-version = "0.1.0"
+version = "0.0.1" # should match html_root_url
 authors = ["Nathan"]
 
+description = "Fast JavaScript parser. Currently only a lexical analyzer."
+documentation = "https://docs.rs/esparse"
+repository = "https://github.com/nathan/parcel-redux"
+license = "MIT"
+license-file = "LICENSE.md"
 exclude = [
   "private/*"
 ]

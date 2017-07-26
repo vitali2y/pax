@@ -1,5 +1,4 @@
-#![feature(test)]
-#![allow(unused_features)]
+#![doc(html_root_url = "https://docs.rs/esparse/0.0.1")]
 
 extern crate memchr;
 
