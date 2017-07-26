@@ -364,8 +364,14 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
     })
 }
 
+/// An error type for parsing string literals.
+///
+/// Returned by [str_lit_value](fn.str_lit_value.html) when the given string literal is syntactically invalid.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ParseStrLitError {
+    /// The string literal contains an invalid escape sequence.
+    ///
+    /// Note that <code>\\<var>c</var></code>, where <var>c</var> is not a [SingleEscapeCharacter](https://tc39.github.io/ecma262/#prod-SingleEscapeCharacter), is *not* an invalid escape sequence. For example, `"\a"` is a valid string literal with the value `"a"`.
     InvalidEscape,
 }
 
