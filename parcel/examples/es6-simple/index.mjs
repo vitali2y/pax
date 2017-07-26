@@ -1,4 +1,5 @@
 import itt from 'itt'
-import { square } from './math'
+import { square, cube } from './math'
 
 console.log(itt.range(10).map(square).join(' '))
+console.log(itt.range(10).map(cube).join(' '))

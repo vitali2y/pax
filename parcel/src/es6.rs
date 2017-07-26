@@ -493,7 +493,6 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     _ => expected!(lex, "class body"),
                 );
             },
-            // TODO (async) arrow function
             // TODO Tt::Id("async") =>
             _ => expected!(lex, "primary expression"),
         );
@@ -563,7 +562,10 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                 Tt::OrEq |
                 Tt::StarStarEq |
 
-                Tt::Question | // below might be better for ternary exprs
+                // TODO async arrow function
+                Tt::EqGt |
+                // below might be better for ternary exprs
+                Tt::Question |
                 Tt::Colon => skip_expr(lex, Prec::Primary)?,
 
                 Tt::Comma if prec == Prec::Any => skip_expr(lex, Prec::Primary)?,
