@@ -179,7 +179,7 @@ sys     0m0.026s
 
 # realtime!
 > parcel-redux -w examples/simple bundle.js
-ready
+ready in 2 ms
 generate bundle.js in 2 ms
 generate bundle.js in 2 ms
 generate bundle.js in 1 ms
