@@ -33,6 +33,7 @@ const TAIL_JS: &'static str = include_str!("tail.js");
 
 #[inline]
 fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>> {
+    // TODO should we panic on dynamic requires?
     loop {
         eat!(lex,
             // Tt::Id(s) if s == "require" => eat!(lex,
@@ -44,16 +45,28 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
                             // TODO handle error
                             return Some(lex::str_lit_value(s).unwrap())
                         },
-                        _ => {
-                            // panic!("dynamic require call {:?}", lex.here());
-                        },
+                        _ => {},
                     ),
-                    _ => {
-                        // panic!("dynamic require {:?}", lex.here())
-                    },
+                    _ => {},
                 ),
-                _ => {
-                },
+                // Tt::Dot => eat!(lex,
+                //     Tt::Id("resolve") => eat!(lex,
+                //         Tt::Lparen => eat!(lex,
+                //             Tt::StrLitSgl(s) |
+                //             Tt::StrLitDbl(s) => eat!(lex,
+                //                 Tt::Rparen => {
+                //                     // TODO handle error
+                //                     return Some(lex::str_lit_value(s).unwrap())
+                //                 },
+                //                 _ => {},
+                //             ),
+                //             _ => {},
+                //         ),
+                //         _ => {},
+                //     ),
+                //     _ => {},
+                // ),
+                _ => {},
             ),
             Tt::Eof => return None,
             _ => {
