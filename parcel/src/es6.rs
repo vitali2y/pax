@@ -789,3 +789,148 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
         _ => expected!(lex, "module name (string literal)"),
     )
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use esparse::lex;
+
+    fn assert_skips_expr(source: &str, prec: Prec) {
+        let mut cleaned = String::new();
+        let mut iter = source.splitn(2, '@');
+        let prefix = iter.next().unwrap();
+        let suffix = iter.next().unwrap();
+        cleaned.push_str(prefix);
+        cleaned.push_str(suffix);
+
+        let mut lexer = lex::Lexer::new("<input>", &cleaned);
+        skip_expr(&mut lexer, prec).unwrap();
+        let here = lexer.here();
+        assert!(
+            here.span.start.pos - here.ws_before.len() <= prefix.len() &&
+            prefix.len() <= here.span.start.pos,
+            "expected skip_expr to skip to:\n{}@\nbut it skipped to:\n{}@",
+            &cleaned[..prefix.len()],
+            &cleaned[..here.span.start.pos - here.ws_before.len()],
+        );
+    }
+
+    #[test]
+    fn test_skip_expr_operator() {
+        assert_skips_expr("1@ + 2 - 3 * 4 / 5 % 6 ** 7, next", Prec::Primary);
+        assert_skips_expr("1 + 2 - 3 * 4 / 5 % 6 ** 7 @, next", Prec::NoComma);
+        assert_skips_expr("1 + 2 - 3 * 4 / 5 % 6 ** 7, next@", Prec::Any);
+        assert_skips_expr("b = (x, y, z) => x + y + z @, next", Prec::NoComma);
+        assert_skips_expr("1 + 2 @; 3 + 4", Prec::NoComma);
+        assert_skips_expr("1 + 2 @; 3 + 4", Prec::Any);
+        assert_skips_expr("1 + 2 @\n 3 + 4", Prec::NoComma);
+        assert_skips_expr("1 + 2 @\n 3 + 4", Prec::Any);
+        assert_skips_expr("a(b, c, d).e < f > g <= h >= i == j != k === l !== m + n - o * p % q ** r++ << s-- >> t >>> u & v | w ^ x && y || z / _ @, next", Prec::NoComma);
+        assert_skips_expr("x = x += x -= x *= x %= x **= x <<= x >>= x >>>= x &= x |= x ^= x /= x @, next", Prec::NoComma);
+        assert_skips_expr("x in y instanceof z @, next", Prec::NoComma);
+    }
+
+    #[test]
+    fn test_skip_expr_ternary() {
+        assert_skips_expr("a ? b ? c : d : e ? f : g @, next", Prec::NoComma);
+    }
+
+    #[test]
+    fn test_skip_expr_postfix() {
+        assert_skips_expr("a @\n ++b", Prec::NoComma);
+        assert_skips_expr("a @\n ++b", Prec::Any);
+        assert_skips_expr("a @\n --b", Prec::NoComma);
+        assert_skips_expr("a @\n --b", Prec::Any);
+        assert_skips_expr("a++ @\n b", Prec::NoComma);
+        assert_skips_expr("a++ @\n b", Prec::Any);
+        assert_skips_expr("a-- @\n b", Prec::NoComma);
+        assert_skips_expr("a-- @\n b", Prec::Any);
+    }
+
+    #[test]
+    fn test_skip_expr_lhs() {
+        assert_skips_expr("a[x, y]@", Prec::NoComma);
+        assert_skips_expr("a.b.c[x, y].d@", Prec::NoComma);
+        assert_skips_expr("temp`late`@", Prec::NoComma);
+        assert_skips_expr("temp`late${with}subs`@", Prec::NoComma);
+        assert_skips_expr("super.a()@", Prec::NoComma);
+        assert_skips_expr("super['key']@", Prec::NoComma);
+        assert_skips_expr("new a.b.C('something')@", Prec::NoComma);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_prefix() {
+        assert_skips_expr("+-~!...++--a@", Prec::Primary);
+        assert_skips_expr("void typeof delete a@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_basic() {
+        assert_skips_expr("ident@", Prec::Primary);
+        assert_skips_expr("this@", Prec::Primary);
+        assert_skips_expr("super@", Prec::Primary);
+        assert_skips_expr("new.target@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_literal() {
+        assert_skips_expr("1@", Prec::Primary);
+        assert_skips_expr("0b1@", Prec::Primary);
+        assert_skips_expr("0o1@", Prec::Primary);
+        assert_skips_expr("0x1@", Prec::Primary);
+        assert_skips_expr("null@", Prec::Primary);
+        assert_skips_expr("true@", Prec::Primary);
+        assert_skips_expr("false@", Prec::Primary);
+        assert_skips_expr("'test'@", Prec::Primary);
+        assert_skips_expr("\"test\"@", Prec::Primary);
+        assert_skips_expr("/foo/y@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_balanced() {
+        assert_skips_expr("(1, (2 + 3), a(4, 5))@", Prec::Primary);
+        assert_skips_expr("[]@", Prec::Primary);
+        assert_skips_expr("[1, [2], 3]@[4]", Prec::Primary);
+        assert_skips_expr("{this: {that: {another: (1)}}}@[here]", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_function() {
+        assert_skips_expr("function() {with, [some, more], {commas}}@", Prec::Primary);
+        assert_skips_expr("function named() {}@", Prec::Primary);
+        assert_skips_expr("function*() {}@", Prec::Primary);
+        assert_skips_expr("function* generator() {}@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_class() {
+        assert_skips_expr("class { method() {} }@", Prec::Primary);
+        assert_skips_expr("class extends Base { method() {} }@", Prec::Primary);
+        assert_skips_expr("class Named { method() {} }@", Prec::Primary);
+        assert_skips_expr("class Named extends Base { method() {} }@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_template() {
+        assert_skips_expr("`template`@", Prec::Primary);
+        assert_skips_expr("`template ${with} some ${subs}`@", Prec::Primary);
+        assert_skips_expr("`template ${`with`} some ${`nested ${subs}`}`@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_arrow() {
+        assert_skips_expr("(x, y, z) => y => z@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_async() {
+        assert_skips_expr("async function() {}@", Prec::Primary);
+        assert_skips_expr("async function named() {}@", Prec::Primary);
+        assert_skips_expr("async @\n function named() {}", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_expr_primary_await() {
+        assert_skips_expr("await a@", Prec::Primary);
+    }
+}
