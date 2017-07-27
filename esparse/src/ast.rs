@@ -1,4 +1,5 @@
 //! Syntactic constructs and related data structures.
+use std::rc::Rc;
 
 /// A location in source code.
 ///
@@ -35,37 +36,50 @@ impl Loc {
 ///
 /// A pair of locations, representing a half-open range, and a file name, identifying the source code in which this region appears.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Span<'f> {
+pub struct SpanT<F> {
     /// The name of the source code.
     ///
-    /// Often a file name, but can be an arbitrary string like `<input>`.
-    pub file_name: &'f str,
+    /// Often a file name, but can be an arbitrary string like `<input>` or even any other type.
+    pub file_name: F,
     /// The (inclusive) starting location.
     pub start: Loc,
     /// The (exclusive) ending location.
     pub end: Loc,
 }
 
-impl<'f> Span<'f> {
-    /// Creates a new `Span` with the given file name and locations.
+// TODO link to parser
+/// A `SpanT` with a borrowed string file name.
+///
+/// Used widely by the [lexer](../lex/index.html) and parser because it appears in every syntactic construct and is cheap to copy.
+///
+/// If the `SpanT` must own its filename, use [`SpanRc`](type.SpanRc.html) instead.
+pub type Span<'f> = SpanT<&'f str>;
+
+/// A `SpanT` with a reference-counted file name.
+///
+/// Useful for creating `SpanT`s which own their file name, but more expensive to clone than a regular [`Span`](type.Span.html).
+pub type SpanRc = SpanT<Rc<String>>;
+
+impl<F> SpanT<F> {
+    /// Creates a new `SpanT` with the given file name and locations.
     #[inline]
-    pub fn new(file_name: &'f str, start: Loc, end: Loc) -> Self {
-        Span {
+    pub fn new(file_name: F, start: Loc, end: Loc) -> Self {
+        SpanT {
             file_name,
             start,
             end,
         }
     }
 
-    /// Creates an empty `Span` at the given location, with the given file name.
+    /// Creates an empty `SpanT` at the given location, with the given file name.
     #[inline]
-    pub fn empty(file_name: &'f str, loc: Loc) -> Self {
-        Span::new(file_name, loc, loc)
+    pub fn empty(file_name: F, loc: Loc) -> Self {
+        SpanT::new(file_name, loc, loc)
     }
 
-    /// Creates an empty `Span` with the given file name, pointing to the first position in the file.
+    /// Creates an empty `SpanT` with the given file name, pointing to the first position in the file.
     #[inline]
-    pub fn zero(file_name: &'f str) -> Self {
-        Span::new(file_name, Default::default(), Default::default())
+    pub fn zero(file_name: F) -> Self {
+        SpanT::new(file_name, Default::default(), Default::default())
     }
 }
