@@ -8,6 +8,9 @@ documentation = "https://docs.rs/esparse"
 repository = "https://github.com/nathan/parcel-redux"
 license = "MIT"
 
+keywords = ["js", "javascript", "es", "ecmascript", "parser"]
+categories = ["parser-implementations"]
+
 exclude = [
   "private/*",
 ]
