@@ -83,3 +83,13 @@ impl<F> SpanT<F> {
         SpanT::new(file_name, Default::default(), Default::default())
     }
 }
+
+impl<'f> Span<'f> {
+    pub fn with_rc(&self) -> SpanT<Rc<String>> {
+        SpanT::new(Rc::new(self.file_name.to_owned()), self.start, self.end)
+    }
+
+    pub fn with_owned(&self) -> SpanT<String> {
+        SpanT::new(self.file_name.to_owned(), self.start, self.end)
+    }
+}
