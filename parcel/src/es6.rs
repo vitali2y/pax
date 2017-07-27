@@ -106,10 +106,8 @@ impl fmt::Display for Error {
             ErrorKind::ParseStrLitError(ref error) => write!(f, "invalid string literal: {}", error)?,
         }
         writeln!(f,
-            " at {}:{},{}",
-            self.span.file_name,
-            self.span.start.row + 1,
-            self.span.start.col + 1,
+            " at {}",
+            self.span,
         )
     }
 }
