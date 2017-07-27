@@ -85,10 +85,12 @@ impl<F> SpanT<F> {
 }
 
 impl<'f> Span<'f> {
+    /// Converts a `Span` into a [`SpanRc`](type.SpanRc.html) by cloning the borrowed file name.
     pub fn with_rc(&self) -> SpanRc {
         SpanT::new(Rc::new(self.file_name.to_owned()), self.start, self.end)
     }
 
+    /// Converts a `Span` into a [`SpanT`](struct.SpanT.html) which owns its data by cloning the borrowed file name.
     pub fn with_owned(&self) -> SpanT<String> {
         SpanT::new(self.file_name.to_owned(), self.start, self.end)
     }
