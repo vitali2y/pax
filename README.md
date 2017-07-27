@@ -4,6 +4,14 @@ Because [parcel](https://github.com/nathan/parcel#readme) wasn't already fast en
 
 Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
 
+# How do I get it?
+
+```sh
+> cargo install parcel
+```
+
+If you don't have `cargo`, install it with [https://rustup.rs](https://rustup.rs/).
+
 # Is it fast?
 
 Umm…
