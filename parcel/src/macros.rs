@@ -1,3 +1,4 @@
+#[macro_export]
 macro_rules! eat {
     (@collect $lexer:expr => $id:tt $all:tt, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, _ => $else:expr $(,)*) => {{
         let tok = $lexer.here();

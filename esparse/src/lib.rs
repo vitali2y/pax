@@ -8,8 +8,9 @@
 
 extern crate memchr;
 
-pub mod ast;
+#[macro_use]
 pub mod lex;
+pub mod ast;
 
 pub use ast::{Loc, Span};
 

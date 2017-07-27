@@ -427,7 +427,76 @@ enum LexFrame {
     Brace,
 }
 
+/// Consumes a token from the given lexer if it matches one of the patterns given.
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// eat!(lexer => tok { all_cases },
+///     pat1_1 | pat1_2 | ... if guard1 => expr1,
+///     pat2_1 | pat2_2 | ... if guard2 => expr2,
+///     _ => else_expr,
+/// )
+/// ```
+///
+/// Each pattern is matched against `lexer`'s current token type ([`Tt`](enum.Tt.html)), and, if it matches, `lexer` is advanced, `all_cases` is evaluated, and finally the corresponding expression is evaluated. `tok` is an identifier to which the consumed token is bound.
+///
+/// `{ all_cases }` can be omitted, as can the entire `=> tok { all_cases }` block.
+///
+/// # Examples
+///
+/// ```
+/// #[macro_use]
+/// extern crate esparse;
+/// use esparse::lex::{self, Tt};
+///
+/// # fn run() -> Result<(), &'static str> {
+/// let mut lexer = lex::Lexer::new("<input>", "foo = 1");
+/// let name = eat!(lexer,
+///     Tt::Id(name) => name,
+///     _ => return Err("expected identifier")
+/// );
+///
+/// println!("the name is: {}", name);
+/// # Ok(())
+/// # }
+/// #
+/// # fn main() {
+/// #     run().unwrap();
+/// # }
+/// ```
+#[macro_export]
 macro_rules! eat {
+    (@collect $lexer:expr => $id:tt $all:tt, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, _ => $else:expr $(,)*) => {{
+        let tok = $lexer.here();
+        let $id = tok;
+        match tok.tt {
+            $($($p)|+ if $c => {
+                $lexer.advance();
+                $all
+                $e
+            })*
+            _ => $else
+        }
+    }};
+    (@collect $lexer:expr => $id:tt $all:tt, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, $($q:pat)|+ => $f:expr, $($t:tt)+) => {
+        eat!(@collect $lexer => $id $all, { $($($p)|+ if $c => $e ,)* $($q)|+ if true => $f, }, $($t)+)
+    };
+    (@collect $lexer:expr => $id:tt $all:tt, { $($($p:pat)|+ if $c:expr => $e:expr ,)* }, $($q:pat)|+ if $d:expr => $f:expr, $($t:tt)+) => {
+        eat!(@collect $lexer => $id $all, { $($($p)|+ if $c => $e ,)* $($q)|+ if $d => $f, }, $($t)+)
+    };
+    ($lexer:expr => $id:tt { $($all:tt)* }, $($t:tt)+) => {
+        eat!(@collect $lexer => $id { $($all)* }, {}, $($t)+)
+    };
+    ($lexer:expr => $id:tt, $($t:tt)+) => {
+        eat!($lexer => $id {}, $($t)+)
+    };
+    ($lexer:expr, $($t:tt)+) => {
+        eat!($lexer => _, $($t)+)
+    };
+}
+
+macro_rules! eat_s {
     (@collect $stream:expr, { $($($($p:tt)...+)|+ => $e:expr ,)* }, _ => $else:expr $(,)*) => {
         match $stream.here() {
             $($(Some($($p)...+))|+ => {
@@ -438,10 +507,10 @@ macro_rules! eat {
         }
     };
     (@collect $stream:expr, { $($($($p:tt)...+)|+ => $e:expr ,)* }, $($($q:tt)...+)|+ => $f:expr, $($t:tt)+) => {
-        eat!(@collect $stream, { $($($($p)...+)|+ => $e ,)* $($($q)...+)|+ => $f, }, $($t)+)
+        eat_s!(@collect $stream, { $($($($p)...+)|+ => $e ,)* $($($q)...+)|+ => $f, }, $($t)+)
     };
     ($stream:expr, $($t:tt)+) => {
-        eat!(@collect $stream, {}, $($t)+)
+        eat_s!(@collect $stream, {}, $($t)+)
     };
 }
 
@@ -550,17 +619,17 @@ impl<'f, 's> Lexer<'f, 's> {
             ';' => Tt::Semi,
             ',' => Tt::Comma,
 
-            '<' => eat!(self.stream,
-                '<' => eat!(self.stream,
+            '<' => eat_s!(self.stream,
+                '<' => eat_s!(self.stream,
                     '=' => Tt::LtLtEq,
                     _ => Tt::LtLt,
                 ),
                 '=' => Tt::LtEq,
                 _ => Tt::Lt,
             ),
-            '>' => eat!(self.stream,
-                '>' => eat!(self.stream,
-                    '>' => eat!(self.stream,
+            '>' => eat_s!(self.stream,
+                '>' => eat_s!(self.stream,
+                    '>' => eat_s!(self.stream,
                         '=' => Tt::GtGtGtEq,
                         _ => Tt::GtGtGt,
                     ),
@@ -570,54 +639,54 @@ impl<'f, 's> Lexer<'f, 's> {
                 '=' => Tt::GtEq,
                 _ => Tt::Gt,
             ),
-            '=' => eat!(self.stream,
+            '=' => eat_s!(self.stream,
                 '>' => Tt::EqGt,
-                '=' => eat!(self.stream,
+                '=' => eat_s!(self.stream,
                     '=' => Tt::EqEqEq,
                     _ => Tt::EqEq,
                 ),
                 _ => Tt::Eq,
             ),
-            '!' => eat!(self.stream,
-                '=' => eat!(self.stream,
+            '!' => eat_s!(self.stream,
+                '=' => eat_s!(self.stream,
                     '=' => Tt::BangEqEq,
                     _ => Tt::BangEq,
                 ),
                 _ => Tt::Bang,
             ),
-            '+' => eat!(self.stream,
+            '+' => eat_s!(self.stream,
                 '+' => Tt::PlusPlus,
                 '=' => Tt::PlusEq,
                 _ => Tt::Plus,
             ),
-            '-' => eat!(self.stream,
+            '-' => eat_s!(self.stream,
                 '-' => Tt::MinusMinus,
                 '=' => Tt::MinusEq,
                 _ => Tt::Minus,
             ),
-            '*' => eat!(self.stream,
-                '*' => eat!(self.stream,
+            '*' => eat_s!(self.stream,
+                '*' => eat_s!(self.stream,
                     '=' => Tt::StarStarEq,
                     _ => Tt::StarStar,
                 ),
                 '=' => Tt::StarEq,
                 _ => Tt::Star,
             ),
-            '%' => eat!(self.stream,
+            '%' => eat_s!(self.stream,
                 '=' => Tt::PercentEq,
                 _ => Tt::Percent,
             ),
-            '&' => eat!(self.stream,
+            '&' => eat_s!(self.stream,
                 '&' => Tt::AndAnd,
                 '=' => Tt::AndEq,
                 _ => Tt::And,
             ),
-            '|' => eat!(self.stream,
+            '|' => eat_s!(self.stream,
                 '|' => Tt::OrOr,
                 '=' => Tt::OrEq,
                 _ => Tt::Or,
             ),
-            '^' => eat!(self.stream,
+            '^' => eat_s!(self.stream,
                 '=' => Tt::CircumflexEq,
                 _ => Tt::Circumflex,
             ),
@@ -785,7 +854,7 @@ impl<'f, 's> Lexer<'f, 's> {
                     Tt::NumLitHex(_) |
                     Tt::Id(_) |
                     Tt::This |
-                    Tt::Super => eat!(self.stream,
+                    Tt::Super => eat_s!(self.stream,
                         '=' => Tt::SlashEq,
                         _ => Tt::Slash,
                     ),
@@ -871,8 +940,8 @@ impl<'f, 's> Lexer<'f, 's> {
                     Some('0'...'9') => {
                         self.stream.advance();
                         self.stream.skip_dec_digits();
-                        eat!(self.stream,
-                            'e' | 'E' => eat!(self.stream,
+                        eat_s!(self.stream,
+                            'e' | 'E' => eat_s!(self.stream,
                                 '-' | '+' | '0'...'9' => {
                                     self.stream.skip_dec_digits();
                                 },
@@ -889,7 +958,7 @@ impl<'f, 's> Lexer<'f, 's> {
                     }
                 }
             }
-            '0' => eat!(self.stream,
+            '0' => eat_s!(self.stream,
                 'b' | 'B' => {
                     self.stream.skip_bin_digits();
                     Tt::NumLitBin(self.stream.str_from(start.pos))
@@ -904,8 +973,8 @@ impl<'f, 's> Lexer<'f, 's> {
                 },
                 '.' => {
                     self.stream.skip_dec_digits();
-                    eat!(self.stream,
-                        'e' | 'E' => eat!(self.stream,
+                    eat_s!(self.stream,
+                        'e' | 'E' => eat_s!(self.stream,
                             '-' | '+' | '0'...'9' => {
                                 self.stream.skip_dec_digits();
                                 Tt::NumLitDec(self.stream.str_from(start.pos))
@@ -919,7 +988,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         },
                     )
                 },
-                'e' | 'E' => eat!(self.stream,
+                'e' | 'E' => eat_s!(self.stream,
                     '-' | '+' | '0'...'9' => {
                         self.stream.skip_dec_digits();
                         Tt::NumLitDec(self.stream.str_from(start.pos))
@@ -932,11 +1001,11 @@ impl<'f, 's> Lexer<'f, 's> {
             ),
             '1'...'9' => {
                 self.stream.skip_dec_digits();
-                eat!(self.stream,
+                eat_s!(self.stream,
                     '.' => {
                         self.stream.skip_dec_digits();
-                        eat!(self.stream,
-                            'e' | 'E' => eat!(self.stream,
+                        eat_s!(self.stream,
+                            'e' | 'E' => eat_s!(self.stream,
                                 '-' | '+' | '0'...'9' => {
                                     self.stream.skip_dec_digits();
                                 },
@@ -947,7 +1016,7 @@ impl<'f, 's> Lexer<'f, 's> {
                             _ => {},
                         );
                     },
-                    'e' | 'E' => eat!(self.stream,
+                    'e' | 'E' => eat_s!(self.stream,
                         '-' | '+' | '0'...'9' => {
                             self.stream.skip_dec_digits();
                         },
