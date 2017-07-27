@@ -45,6 +45,7 @@ Of course!
 
 # parcel.js with no source map
 > parcel index.js >parcel.js
+# or
 > parcel --no-map index.js parcel.js
 ```
 
