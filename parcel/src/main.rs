@@ -1,5 +1,6 @@
 #![cfg_attr(test, feature(test))]
 
+#[macro_use]
 extern crate esparse;
 extern crate crossbeam;
 extern crate num_cpus;
@@ -26,8 +27,6 @@ use notify::Watcher;
 
 use esparse::lex::{self, Tt};
 
-#[macro_use]
-mod macros;
 mod es6;
 
 const HEAD_JS: &'static str = include_str!("head.js");
