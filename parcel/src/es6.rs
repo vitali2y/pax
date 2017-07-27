@@ -171,7 +171,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
     if !imports.is_empty() {
         write!(source_prefix, "with (function() {{").unwrap();
         for (i, import) in imports.iter().enumerate() {
-            write!(source_prefix, "\n  const __module{} = require.module({})", i, import.module_source).unwrap();
+            write!(source_prefix, "\n  const __module{} = require._esModule({})", i, import.module_source).unwrap();
         }
         write!(source_prefix, "\n  return Object.freeze(Object.create(null, {{\n    [Symbol.toStringTag]: {{value: 'ModuleImports'}},").unwrap();
         for (i, import) in imports.iter().enumerate() {

@@ -25,30 +25,33 @@
   }
   Parcel.makeRequire = self => {
     let parts
-    const require = m => {
-      let fn = self ? require.deps[m] : Parcel.main
+
+    const require = m => require._module(m).exports
+    require._deps = {}
+    require.main = self
+
+    require._esModule = m => {
+      let result = require(m)
+      if (!result.__esModule) result = {default: result}
+      return result
+    }
+    require._module = m => {
+      let fn = self ? require._deps[m] : Parcel.main
       // if (fn === undefined) {
       //   const filename = require.resolve(m)
       //   fn = filename !== null ? Parcel.files[filename] : null
       // }
       if (fn == null) return Parcel.baseRequire(m)
-      if (fn.module) return fn.module.exports
+      if (fn.module) return fn.module
       const module = new Parcel.Module(fn.filename, self)
       fn.module = module
       module.require = Parcel.makeRequire(module)
-      module.require.deps = fn.deps
+      module.require._deps = fn.deps
       module.require.main = self ? self.require.main : module
       if (self) self.children.push(module)
       fn(module, module.exports, module.require)
       module.loaded = true
-      return module.exports
-    }
-    require.deps = {}
-    require.main = self
-    require.module = m => {
-      let result = require(m)
-      if (!result.__esModule) result = {default: result}
-      return result
+      return module
     }
     // require.resolve = n => {
     //   if (!self) return n
