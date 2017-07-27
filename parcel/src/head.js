@@ -31,9 +31,10 @@
     require.main = self
 
     require._esModule = m => {
-      let result = require(m)
-      if (!result.__esModule) result = {default: result}
-      return result
+      const mod = require._module(m)
+      return mod.exports.__esModule ? mod.exports : {
+        get default() {return mod.exports},
+      }
     }
     require._module = m => {
       let fn = self ? require._deps[m] : Parcel.main
