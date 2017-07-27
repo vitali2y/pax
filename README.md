@@ -44,6 +44,8 @@ Of course!
 > parcel --map-inline index.js parcel.js
 
 # parcel.js with no source map
+> parcel index.js >parcel.js
+# or
 > parcel --no-map index.js parcel.js
 ```
 
@@ -177,7 +179,7 @@ sys     0m0.026s
 
 # realtime!
 > parcel-redux -w examples/simple bundle.js
-ready
+ready in 2 ms
 generate bundle.js in 2 ms
 generate bundle.js in 2 ms
 generate bundle.js in 1 ms
