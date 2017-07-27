@@ -450,19 +450,12 @@ enum LexFrame {
 /// extern crate esparse;
 /// use esparse::lex::{self, Tt};
 ///
-/// # fn run() -> Result<(), &'static str> {
+/// # fn main() {
 /// let mut lexer = lex::Lexer::new("<input>", "foo = 1");
 /// let name = eat!(lexer,
-///     Tt::Id(name) => name,
-///     _ => return Err("expected identifier")
+///     Tt::Id(name) => println!("the name is: {}", name),
+///     _ => panic!("expected identifier"),
 /// );
-///
-/// println!("the name is: {}", name);
-/// # Ok(())
-/// # }
-/// #
-/// # fn main() {
-/// #     run().unwrap();
 /// # }
 /// ```
 #[macro_export]
