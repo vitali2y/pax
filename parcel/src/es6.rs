@@ -7,13 +7,12 @@ use esparse;
 use esparse::lex::{self, Tt};
 
 macro_rules! expected {
-    ($lex:expr, $msg:expr) => {
+    ($lex:expr, $msg:expr) => {{
         return Err(Error {
             kind: ErrorKind::Expected($msg),
-            // TODO span with file name, but error shouldn't have a reference
-            loc: $lex.here().span.start,
+            span: $lex.here().span.with_owned(),
         })
-    };
+    }};
 }
 
 #[derive(Debug)]
@@ -92,7 +91,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    loc: esparse::Loc,
+    span: esparse::ast::SpanT<String>,
 }
 #[derive(Debug)]
 pub enum ErrorKind {
@@ -107,9 +106,10 @@ impl fmt::Display for Error {
             ErrorKind::ParseStrLitError(ref error) => write!(f, "invalid string literal: {}", error)?,
         }
         writeln!(f,
-            " at <?>:{},{}",
-            self.loc.row + 1,
-            self.loc.col + 1,
+            " at {}:{},{}",
+            self.span.file_name,
+            self.span.start.row + 1,
+            self.span.start.col + 1,
         )
     }
 }
@@ -141,7 +141,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                                     Ok(dep) => dep,
                                     Err(error) => return Err(Error {
                                         kind: ErrorKind::ParseStrLitError(error),
-                                        loc: tok.span.start,
+                                        span: tok.span.with_owned(),
                                     }),
                                 });
                             },
@@ -295,7 +295,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                         Ok(module) => module,
                         Err(error) => return Err(Error {
                             kind: ErrorKind::ParseStrLitError(error),
-                            loc: tok.span.start,
+                            span: tok.span.with_owned(),
                         }),
                     }))
                 },
@@ -341,7 +341,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                             Ok(module) => module,
                             Err(error) => return Err(Error {
                                 kind: ErrorKind::ParseStrLitError(error),
-                                loc: tok.span.start,
+                                span: tok.span.with_owned(),
                             }),
                         }))
                     },
@@ -745,7 +745,7 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                 Ok(module) => module,
                 Err(error) => return Err(Error {
                     kind: ErrorKind::ParseStrLitError(error),
-                    loc: tok.span.start,
+                    span: tok.span.with_owned(),
                 }),
             }))
         },
@@ -771,7 +771,7 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                     Ok(module) => module,
                     Err(error) => return Err(Error {
                         kind: ErrorKind::ParseStrLitError(error),
-                        loc: tok.span.start,
+                        span: tok.span.with_owned(),
                     }),
                 },
                 default_bind,
