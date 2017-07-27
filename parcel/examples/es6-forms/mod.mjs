@@ -11,3 +11,6 @@ export function test2() {}
 export function* testGen2() {}
 
 function B() {return null}
+
+var va, vb
+export {va as vaz, vb}
