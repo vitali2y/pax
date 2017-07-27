@@ -219,7 +219,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
     }
 
     if !exports.is_empty() {
-        write!(source_prefix, "Object.defineProperties(exports, {{\n").unwrap();
+        write!(source_prefix, "Object.defineProperties(exports, {{").unwrap();
         for export in &exports {
             match *export {
                 Export::Default(bind) => {
