@@ -164,9 +164,12 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
         );
     }
 
+    let is_module = !allow_require || !exports.is_empty() || !imports.is_empty();
     let mut source_prefix = String::new();
 
-    write!(source_prefix, "Object.defineProperty(exports, '__esModule', {{value: true}})\n").unwrap();
+    if is_module {
+        write!(source_prefix, "Object.defineProperty(exports, '__esModule', {{value: true}})\n").unwrap();
+    }
 
     if !imports.is_empty() {
         write!(source_prefix, "with (function() {{").unwrap();
@@ -211,7 +214,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
 
     write!(source_prefix, "~function() {{").unwrap();
 
-    if !allow_require || !exports.is_empty() || !imports.is_empty() {
+    if is_module {
         write!(source_prefix, "\n'use strict';\n").unwrap();
     }
 
