@@ -592,6 +592,7 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     Tt::Id(_) => {},
                     _ => expected!(lex, "member name"),
                 ),
+                Tt::TemplateNoSub(_) => {},
                 Tt::TemplateStart(_) => skip_balanced(lex,
                     |tt| matches!(tt, Tt::TemplateStart(_)),
                     |tt| matches!(tt, Tt::TemplateEnd(_)),
