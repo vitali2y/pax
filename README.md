@@ -63,6 +63,12 @@ console.log(itt.range(10).map(cube).join(' '))
 export const square = x => x * x, cube = x => x * x * x
 ```
 
+```
+> parcel -e index.mjs parcel.js
+```
+
+If you need your modules to be in `.js` files for some reason, use `-E` (`--es-syntax-everywhere`) instead of `-e` (`--es-syntax`).
+
 # What are the options?
 
 ```
