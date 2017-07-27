@@ -44,6 +44,7 @@ Of course!
 > parcel --map-inline index.js parcel.js
 
 # parcel.js with no source map
+> parcel index.js >parcel.js
 > parcel --no-map index.js parcel.js
 ```
 
