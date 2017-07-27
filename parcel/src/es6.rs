@@ -804,7 +804,7 @@ mod test {
         cleaned.push_str(prefix);
         cleaned.push_str(suffix);
 
-        let mut lexer = lex::Lexer::new("<input>", &cleaned);
+        let mut lexer = lex::Lexer::new_unnamed(&cleaned);
         skip_expr(&mut lexer, prec).unwrap();
         let here = lexer.here();
         assert!(

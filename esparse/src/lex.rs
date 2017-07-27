@@ -7,7 +7,7 @@
 //! ```
 //! use esparse::lex::Lexer;
 //!
-//! let mut lexer = Lexer::new("<input>", "1 + 2");
+//! let mut lexer = Lexer::new_unnamed("1 + 2");
 //!
 //! for tok in lexer {
 //!     println!("{} ", tok.tt);
@@ -453,7 +453,7 @@ enum LexFrame {
 /// use esparse::lex::{self, Tt};
 ///
 /// # fn main() {
-/// let mut lexer = lex::Lexer::new("<input>", "foo = 1");
+/// let mut lexer = lex::Lexer::new_unnamed("foo = 1");
 /// eat!(lexer,
 ///     Tt::Id(name) => println!("the name is: {}", name),
 ///     _ => panic!("expected identifier"),
@@ -470,7 +470,7 @@ enum LexFrame {
 /// use std::fmt::Write;
 ///
 /// # fn main() {
-/// let mut lexer = lex::Lexer::new("<input>", "/* example */ foo = 1");
+/// let mut lexer = lex::Lexer::new_unnamed("/* example */ foo = 1");
 /// let mut output = String::new();
 ///
 /// eat!(lexer => tok { write!(output, "{}{}", tok.ws_before, tok.tt).unwrap() },
@@ -554,6 +554,21 @@ impl<'f, 's> Lexer<'f, 's> {
         lexer
     }
 
+    /// Creates a new `Lexer` with the given source code and `<input>` as the file name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use esparse::lex::Lexer;
+    ///
+    /// let lexer = Lexer::new_unnamed("1 + 2");
+    /// println!("The first token is: {:?}", lexer.here());
+    /// ```
+    #[inline]
+    pub fn new_unnamed(input: &'s str) -> Self {
+        Self::new("<input>", input)
+    }
+
     /// The input source code.
     ///
     /// # Examples
@@ -561,7 +576,7 @@ impl<'f, 's> Lexer<'f, 's> {
     /// ```
     /// use esparse::lex::Lexer;
     ///
-    /// let lexer = Lexer::new("<input>", "1 + 2");
+    /// let lexer = Lexer::new_unnamed("1 + 2");
     /// assert_eq!(lexer.input(), "1 + 2");
     /// ```
     #[inline]
@@ -576,7 +591,7 @@ impl<'f, 's> Lexer<'f, 's> {
     /// ```
     /// use esparse::lex::Lexer;
     ///
-    /// let mut lexer = Lexer::new("<input>", "1 + 2");
+    /// let mut lexer = Lexer::new_unnamed("1 + 2");
     /// println!("The first token is: {:?}", lexer.here());
     /// lexer.advance();
     /// println!("The second token is: {:?}", lexer.here());
@@ -593,7 +608,7 @@ impl<'f, 's> Lexer<'f, 's> {
     /// ```
     /// use esparse::lex::Lexer;
     ///
-    /// let mut lexer = Lexer::new("<input>", "1 + 2");
+    /// let mut lexer = Lexer::new_unnamed("1 + 2");
     /// println!("The first token is: {:?}", lexer.advance());
     /// println!("The second token is: {:?}", lexer.advance());
     /// ```
@@ -4556,7 +4571,7 @@ mod test {
     use std::borrow::Cow;
 
     fn lex_test(source: &str, expected: &[Tt]) {
-        let mut lexer = Lexer::new("<input>", source);
+        let mut lexer = Lexer::new_unnamed(source);
         for tt in expected {
             assert_eq!(tt, &lexer.advance().tt);
         }
@@ -4565,7 +4580,7 @@ mod test {
 
     fn lex_test_invalid(source: &str) {
         panic::catch_unwind(|| {
-            for _ in Lexer::new("<input>", source) {}
+            for _ in Lexer::new_unnamed(source) {}
         }).unwrap_err();
     }
 
@@ -5469,7 +5484,7 @@ mod test {
         file.read_to_string(&mut contents).unwrap();
 
         b.iter(|| {
-            let mut lexer = Lexer::new("<input>", &contents);
+            let mut lexer = Lexer::new_unnamed(&contents);
             loop {
                 if lexer.advance().tt == Tt::Eof {
                     break
