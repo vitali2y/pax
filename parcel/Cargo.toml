@@ -8,7 +8,7 @@ repository = "https://github.com/nathan/parcel-redux"
 license = "MIT"
 readme = "../README.md"
 
-keywords = ["js", "javascript", "es", "ecmascript", "bundler", "modules"]
+keywords = ["js", "javascript", "es", "ecmascript", "bundler"]
 categories = ["development-tools", "command-line-utilities", "web-programming"]
 
 exclude = [
