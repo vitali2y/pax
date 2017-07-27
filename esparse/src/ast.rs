@@ -1,4 +1,5 @@
 //! Syntactic constructs and related data structures.
+use std::fmt;
 use std::rc::Rc;
 
 /// A location in source code.
@@ -93,5 +94,40 @@ impl<'f> Span<'f> {
     /// Converts a `Span` into a [`SpanT`](struct.SpanT.html) which owns its data by cloning the borrowed file name.
     pub fn with_owned(&self) -> SpanT<String> {
         SpanT::new(self.file_name.to_owned(), self.start, self.end)
+    }
+}
+
+impl<F: fmt::Display> fmt::Display for SpanT<F> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.start.row == self.end.row {
+            if self.start.col == self.end.col {
+                write!(
+                    f,
+                    "{}:{},{}",
+                    self.file_name,
+                    self.start.row + 1,
+                    self.start.col + 1,
+                )
+            } else {
+                write!(
+                    f,
+                    "{}:{},{}-{}",
+                    self.file_name,
+                    self.start.row + 1,
+                    self.start.col + 1,
+                    self.end.col + 1,
+                )
+            }
+        } else {
+            write!(
+                f,
+                "{}:{},{}-{},{}",
+                self.file_name,
+                self.start.row + 1,
+                self.start.col + 1,
+                self.end.row + 1,
+                self.end.col + 1,
+            )
+        }
     }
 }
