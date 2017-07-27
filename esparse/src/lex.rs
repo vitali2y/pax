@@ -366,7 +366,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             b'\r' => match bytes.get(last_pos) {
                 Some(&b'\n') => last_pos += 1,
                 _ => {}
-            }
+            },
             // ignore line terminators
             b'\n' => {}
 
