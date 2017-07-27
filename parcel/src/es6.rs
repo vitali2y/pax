@@ -397,19 +397,11 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                 _ => expected!(lex, "function name"),
             );
             // eat!(lex,
-            //     Tt::Lparen => skip_balanced(lex,
-            //         |tt| tt == Tt::Lparen,
-            //         |tt| tt == Tt::Rparen,
-            //         "')'",
-            //     )?,
+            //     Tt::Lparen => skip_balanced_parens(lex, 1)?,
             //     _ => expected!(lex, "formal parameter list"),
             // );
             // eat!(lex,
-            //     Tt::Lbrace => skip_balanced(lex,
-            //         |tt| tt == Tt::Lbrace,
-            //         |tt| tt == Tt::Rbrace,
-            //         "'}'",
-            //     )?,
+            //     Tt::Lbrace => skip_balanced_braces(lex, 1)?,
             //     _ => expected!(lex, "function body"),
             // );
 
@@ -431,11 +423,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
             //     _ => {},
             // );
             // eat!(lex,
-            //     Tt::Lbrace => skip_balanced(lex,
-            //         |tt| tt == Tt::Lbrace,
-            //         |tt| tt == Tt::Rbrace,
-            //         "'}'",
-            //     )?,
+            //     Tt::Lbrace => skip_balanced_braces(lex, 1)?,
             //     _ => expected!(lex, "class body"),
             // );
 
@@ -512,26 +500,10 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
             Tt::RegExpLit(_, _) |
             Tt::TemplateNoSub(_) => {},
 
-            Tt::TemplateStart(_) => skip_balanced(lex,
-                |tt| matches!(tt, Tt::TemplateStart(_)),
-                |tt| matches!(tt, Tt::TemplateEnd(_)),
-                "end of template literal",
-            )?,
-            Tt::Lbracket => skip_balanced(lex,
-                |tt| tt == Tt::Lbracket,
-                |tt| tt == Tt::Rbracket,
-                "']'",
-            )?,
-            Tt::Lbrace => skip_balanced(lex,
-                |tt| tt == Tt::Lbrace,
-                |tt| tt == Tt::Rbrace,
-                "'}'",
-            )?,
-            Tt::Lparen => skip_balanced(lex,
-                |tt| tt == Tt::Lparen,
-                |tt| tt == Tt::Rparen,
-                "')'",
-            )?,
+            Tt::TemplateStart(_) => skip_balanced_templates(lex, 1)?,
+            Tt::Lbracket => skip_balanced_brackets(lex, 1)?,
+            Tt::Lbrace => skip_balanced_braces(lex, 1)?,
+            Tt::Lparen => skip_balanced_parens(lex, 1)?,
 
             Tt::Function => {
                 eat!(lex,
@@ -543,19 +515,11 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     _ => {},
                 );
                 eat!(lex,
-                    Tt::Lparen => skip_balanced(lex,
-                        |tt| tt == Tt::Lparen,
-                        |tt| tt == Tt::Rparen,
-                        "')'",
-                    )?,
+                    Tt::Lparen => skip_balanced_parens(lex, 1)?,
                     _ => expected!(lex, "formal parameter list"),
                 );
                 eat!(lex,
-                    Tt::Lbrace => skip_balanced(lex,
-                        |tt| tt == Tt::Lbrace,
-                        |tt| tt == Tt::Rbrace,
-                        "'}'",
-                    )?,
+                    Tt::Lbrace => skip_balanced_braces(lex, 1)?,
                     _ => expected!(lex, "function body"),
                 );
             },
@@ -569,11 +533,7 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     _ => {},
                 );
                 eat!(lex,
-                    Tt::Lbrace => skip_balanced(lex,
-                        |tt| tt == Tt::Lbrace,
-                        |tt| tt == Tt::Rbrace,
-                        "'}'",
-                    )?,
+                    Tt::Lbrace => skip_balanced_braces(lex, 1)?,
                     _ => expected!(lex, "class body"),
                 );
             },
@@ -593,21 +553,9 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     _ => expected!(lex, "member name"),
                 ),
                 Tt::TemplateNoSub(_) => {},
-                Tt::TemplateStart(_) => skip_balanced(lex,
-                    |tt| matches!(tt, Tt::TemplateStart(_)),
-                    |tt| matches!(tt, Tt::TemplateEnd(_)),
-                    "end of template literal",
-                )?,
-                Tt::Lbracket => skip_balanced(lex,
-                    |tt| tt == Tt::Lbracket,
-                    |tt| tt == Tt::Rbracket,
-                    "']'",
-                )?,
-                Tt::Lparen => skip_balanced(lex,
-                    |tt| tt == Tt::Lparen,
-                    |tt| tt == Tt::Rparen,
-                    "')'",
-                )?,
+                Tt::TemplateStart(_) => skip_balanced_templates(lex, 1)?,
+                Tt::Lbracket => skip_balanced_brackets(lex, 1)?,
+                Tt::Lparen => skip_balanced_parens(lex, 1)?,
 
                 Tt::StarStar |
                 Tt::Star |
@@ -672,7 +620,51 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
 }
 
 #[inline]
-fn skip_balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
+fn skip_balanced_templates<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+    skip_balanced(
+        lex,
+        nesting,
+        |tt| matches!(tt, Tt::TemplateStart(_)),
+        |tt| matches!(tt, Tt::TemplateEnd(_)),
+        "end of template literal",
+    )
+}
+
+#[inline]
+fn skip_balanced_braces<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+    skip_balanced(
+        lex,
+        nesting,
+        |tt| tt == Tt::Lbrace,
+        |tt| tt == Tt::Rbrace,
+        "'}'",
+    )
+}
+
+#[inline]
+fn skip_balanced_brackets<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+    skip_balanced(
+        lex,
+        nesting,
+        |tt| tt == Tt::Lbracket,
+        |tt| tt == Tt::Rbracket,
+        "']'",
+    )
+}
+
+#[inline]
+fn skip_balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+    skip_balanced(
+        lex,
+        nesting,
+        |tt| tt == Tt::Lparen,
+        |tt| tt == Tt::Rparen,
+        "')'",
+    )
+}
+
+#[inline]
+fn skip_balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut nesting: usize, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
 L: FnMut(Tt) -> bool,
 R: FnMut(Tt) -> bool {
     #[cold]
@@ -680,7 +672,6 @@ R: FnMut(Tt) -> bool {
     fn unbalanced<'f, 's>(lex: &mut lex::Lexer<'f, 's>, expect: &'static str) -> Result<()> {
         expected!(lex, expect)
     }
-    let mut nesting = 1;
     while nesting > 0 {
         let tt = lex.advance().tt;
         if l(tt) {
@@ -933,5 +924,52 @@ mod test {
     #[test]
     fn test_skip_expr_primary_await() {
         assert_skips_expr("await a@", Prec::Primary);
+    }
+
+    #[test]
+    fn test_skip_balanced() {
+        let mut lexer = lex::Lexer::new_unnamed("(((-a)())((()(b)())))c)");
+        lexer.advance();
+        skip_balanced(
+            &mut lexer,
+            1,
+            |tt| tt == Tt::Lparen,
+            |tt| tt == Tt::Rparen,
+            "')'",
+        ).unwrap();
+        assert_eq!(lexer.here().tt, Tt::Id("c"));
+
+        let mut lexer = lex::Lexer::new_unnamed("(((-a)())((()(b)())))c)");
+        lexer.advance();
+        skip_balanced_parens(&mut lexer, 1).unwrap();
+        assert_eq!(lexer.here().tt, Tt::Id("c"));
+
+        let mut lexer = lex::Lexer::new_unnamed("[[[-a][]][[[][b][]]]]c]");
+        lexer.advance();
+        skip_balanced_brackets(&mut lexer, 1).unwrap();
+        assert_eq!(lexer.here().tt, Tt::Id("c"));
+
+        let mut lexer = lex::Lexer::new_unnamed("{{{-a}{}}{{{}{b}{}}}}c}");
+        lexer.advance();
+        skip_balanced_braces(&mut lexer, 1).unwrap();
+        assert_eq!(lexer.here().tt, Tt::Id("c"));
+
+        let mut lexer = lex::Lexer::new_unnamed("`${`${`${-a}` + `${v}`}` - `${`${`${x}` * `${b}` * `${z}`}`}`}`c}`");
+        lexer.advance(); // skip first Tt::TemplateStart
+        skip_balanced_templates(&mut lexer, 1).unwrap();
+        assert_eq!(lexer.here().tt, Tt::Id("c"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_skip_balanced_eof() {
+        let mut lexer = lex::Lexer::new_unnamed("((");
+        skip_balanced(
+            &mut lexer,
+            1,
+            |tt| tt == Tt::Lparen,
+            |tt| tt == Tt::Rparen,
+            "')'",
+        ).unwrap();
     }
 }
