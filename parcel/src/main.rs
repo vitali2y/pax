@@ -858,7 +858,7 @@ Options:
 
     -E, --es-syntax-everywhere
         Implies --es-syntax. Allow ECMAScript module syntax in .js files.
-        CJS-style require() calls are also allowed.
+        CJS-style `require()` calls are also allowed.
 
     -h, --help
         Print this message.
