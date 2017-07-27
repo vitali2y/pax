@@ -1,6 +1,6 @@
-# parcel redux
+# Parcel Redux
 
-Because [parcel](https://github.com/nathan/parcel#readme) wasn't already [fast enough](#is-it-fast).
+Because [Parcel](https://github.com/nathan/parcel#readme) wasn't already [fast enough](#is-it-fast).
 
 Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
 
