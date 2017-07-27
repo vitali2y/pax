@@ -57,7 +57,7 @@ user    0m0.077s
 sys     0m0.026s
 
 # realtime!
-> parcel -w examples/simple bundle.js
+> parcel-redux -w examples/simple bundle.js
 ready
 generate bundle.js in 2 ms
 generate bundle.js in 2 ms
