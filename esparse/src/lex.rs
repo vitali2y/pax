@@ -445,6 +445,8 @@ enum LexFrame {
 ///
 /// # Examples
 ///
+/// Conditionally accept a token:
+///
 /// ```
 /// #[macro_use]
 /// extern crate esparse;
@@ -452,10 +454,31 @@ enum LexFrame {
 ///
 /// # fn main() {
 /// let mut lexer = lex::Lexer::new("<input>", "foo = 1");
-/// let name = eat!(lexer,
+/// eat!(lexer,
 ///     Tt::Id(name) => println!("the name is: {}", name),
 ///     _ => panic!("expected identifier"),
 /// );
+/// # }
+/// ```
+///
+/// Parse a token stream while outputting source code to a string:
+///
+/// ```
+/// #[macro_use]
+/// extern crate esparse;
+/// use esparse::lex::{self, Tt};
+/// use std::fmt::Write;
+///
+/// # fn main() {
+/// let mut lexer = lex::Lexer::new("<input>", "/* example */ foo = 1");
+/// let mut output = String::new();
+///
+/// eat!(lexer => tok { write!(output, "{}{}", tok.ws_before, tok.tt).unwrap() },
+///     Tt::Id(name) => println!("the name is: {}", name),
+///     _ => panic!("expected identifier"),
+/// );
+///
+/// assert_eq!(output, "/* example */ foo");
 /// # }
 /// ```
 #[macro_export]
