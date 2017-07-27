@@ -24,7 +24,6 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use crossbeam::sync::SegQueue;
 use notify::Watcher;
-
 use esparse::lex::{self, Tt};
 
 mod es6;
