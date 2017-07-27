@@ -1,8 +1,10 @@
 # parcel redux
 
-Because [parcel](https://github.com/nathan/parcel#readme) wasn't already fast enough.
+Because [parcel](https://github.com/nathan/parcel#readme) wasn't already [fast enough](#is-it-fast).
 
 Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
+
+[How do I get it?](#how-do-i-get-it) · [How do I use it?](#how-do-i-use-it) · [Does it do source maps?](#does-it-do-source-maps) · [Modules?](#modules) · [What are the options?](#what-are-the-options) · [Is it fast?](#is-it-fast)
 
 # How do I get it?
 
@@ -11,6 +13,109 @@ Fully supports ECMAScript module syntax (`import`/`export`) in addition to Commo
 ```
 
 If you don't have `cargo`, install it with [https://rustup.rs](https://rustup.rs/).
+
+# How do I use it?
+
+```js
+// index.js:
+const itt = require('itt')
+const math = require('./math')
+console.log(itt.range(10).map(math.square).join(' '))
+
+// math.js:
+exports.square = x => x * x
+```
+
+```sh
+> parcel index.js parcel.js
+```
+
+And then `node parcel.js` or `<script src=parcel.js>` to your heart's content.
+
+# Does it do source maps?
+
+Of course!
+
+```sh
+# parcel.js and parcel.js.map
+> parcel index.js parcel.js
+
+# parcel.js with inline map
+> parcel --map-inline index.js parcel.js
+
+# parcel.js with no source map
+> parcel --no-map index.js parcel.js
+```
+
+# Modules?
+
+That's technically not a question. But yes.
+
+```js
+// index.mjs
+import itt from 'itt'
+import { square, cube } from './math'
+
+console.log(itt.range(10).map(square).join(' '))
+console.log(itt.range(10).map(cube).join(' '))
+
+// math.mjs
+export const square = x => x * x, cube = x => x * x * x
+```
+
+# What are the options?
+
+```
+> parcel --help
+parcel v0.0.1
+
+Usage:
+    parcel [options] <input> [output]
+    parcel [-h | --help]
+
+Options:
+    -i, --input <input>
+        Use <input> as the main module.
+
+    -o, --output <output>
+        Write bundle to <output> and source map to <output>.map.
+        Default: '-' for stdout.
+
+    -m, --map <map>
+        Output source map to <map>.
+
+    -I, --map-inline
+        Output source map inline as data: URI.
+
+    -M, --no-map
+        Suppress source map output when it would normally be implied.
+
+    -w, --watch
+        Watch for changes to <input> and its dependencies.
+
+    -e, --es-syntax
+        Support .mjs files with ECMAScript module syntax:
+
+            import itt from 'itt'
+            export const greeting = 'Hello, world!'
+
+        Instead of CommonJS require syntax:
+
+            const itt = require('itt')
+            exports.greeting = 'Hello, world!'
+
+        .mjs (ESM) files can import .js (CJS) files, in which case the
+        namespace object has a single `default` binding which reflects the
+        value of `module.exports`. CJS files can require ESM files, in which
+        case the resultant object is the namespace object.
+
+    -E, --es-syntax-everywhere
+        Implies --es-syntax. Allow ECMAScript module syntax in .js files.
+        CJS-style require() calls are also allowed.
+
+    -h, --help
+        Print this message.
+```
 
 # Is it fast?
 
