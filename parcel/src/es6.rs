@@ -1056,12 +1056,14 @@ mod test {
         ).unwrap();
     }
 
-    fn assert_export_form(source: &str, result: Export, out: &str) {
-        let mut lexer = lex::Lexer::new_unnamed(source);
-        assert_eq!(lexer.advance().tt, Tt::Export);
-        let mut output = String::new();
-        assert_eq!(parse_export(&mut lexer, &mut output).unwrap(), result);
-        assert_eq!(output, out);
+    macro_rules! assert_export_form {
+        ($source:expr, $result:expr, $out:expr $(,)*) => {{
+            let mut lexer = lex::Lexer::new_unnamed($source);
+            assert_eq!(lexer.advance().tt, Tt::Export);
+            let mut output = String::new();
+            assert_eq!(parse_export(&mut lexer, &mut output).unwrap(), $result);
+            assert_eq!(output, $out);
+        }};
     }
 
     fn assert_export_form_panic(source: &str) {
@@ -1073,25 +1075,25 @@ mod test {
 
     #[test]
     fn test_export_default() {
-        assert_export_form(
+        assert_export_form!(
             "export //\ndefault /* comment */ 0 _next",
             Export::Default("__default"),
             // " //\n /* comment */ 0",
             " //\nconst __default = ",
         );
-        assert_export_form(
+        assert_export_form!(
             "export default class Test {} _next",
             Export::Default("Test"),
             // "  class Test {}",
             "  class Test",
         );
-        assert_export_form(
+        assert_export_form!(
             "export default function test() {} _next",
             Export::Default("test"),
             // "  function test() {}",
             "  function test",
         );
-        assert_export_form(
+        assert_export_form!(
             "export default function* testGen() {} _next",
             Export::Default("testGen"),
             // "  function* testGen() {}",
@@ -1108,12 +1110,12 @@ mod test {
 
     #[test]
     fn test_export_binding() {
-        assert_export_form(
+        assert_export_form!(
             "export var asdf _next",
             Export::Named(vec![ExportSpec::same("asdf")]),
             " var asdf",
         );
-        assert_export_form(
+        assert_export_form!(
             "export let a = 1, b = (1, 2), c = 3, d = (za, zb) => b, e _next",
             Export::Named(vec![
                 ExportSpec::same("a"),
@@ -1124,7 +1126,7 @@ mod test {
             ]),
             " let a = 1, b = (1, 2), c = 3, d = (za, zb) => b, e",
         );
-        assert_export_form(
+        assert_export_form!(
             "export const j = class A extends B(c, d) {}, k = 1 _next",
             Export::Named(vec![
                 ExportSpec::same("j"),
@@ -1136,19 +1138,19 @@ mod test {
 
     #[test]
     fn test_export_hoistable_declaration() {
-        assert_export_form(
+        assert_export_form!(
             "export class Test2 {} _next",
             Export::Named(vec![ExportSpec::same("Test2")]),
             // " class Test2 {}",
             " class Test2",
         );
-        assert_export_form(
+        assert_export_form!(
             "export function test2() {} _next",
             Export::Named(vec![ExportSpec::same("test2")]),
             // " function test2() {}",
             " function test2",
         );
-        assert_export_form(
+        assert_export_form!(
             "export function* testGen2() {} _next",
             Export::Named(vec![ExportSpec::same("testGen2")]),
             // " function* testGen2() {}",
@@ -1158,7 +1160,7 @@ mod test {
 
     #[test]
     fn test_export_list() {
-        assert_export_form(
+        assert_export_form!(
             "export {va as vaz, vb, something as default} _next",
             Export::Named(vec![
                 ExportSpec::new("va", "vaz"),
@@ -1171,7 +1173,7 @@ mod test {
 
     #[test]
     fn test_export_ns_from() {
-        assert_export_form(
+        assert_export_form!(
             "export * from 'a_module' _next",
             Export::AllFrom(Cow::Borrowed("a_module")),
             "   ",
@@ -1180,7 +1182,7 @@ mod test {
 
     #[test]
     fn test_export_list_from() {
-        assert_export_form(
+        assert_export_form!(
             "export {va as vaz, vb, something as default, default as something_else, default, default as default} from 'a_module' _next",
             Export::NamedFrom(vec![
                 ExportSpec::new("va", "vaz"),
