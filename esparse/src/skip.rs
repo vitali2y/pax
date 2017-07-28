@@ -281,6 +281,30 @@ pub fn expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
     Ok(())
 }
 
+/// Skip a balanced tree of template literals.
+///
+/// `nesting` should be nonzero, and describes the depth of template literal nesting the lexer is at when entering this function.
+///
+/// # Examples
+///
+/// ```
+/// #[macro_use]
+/// extern crate matches;
+/// extern crate esparse;
+///
+/// use esparse::{lex, skip};
+///
+/// # fn run() -> skip::Result<()> {
+/// let mut lexer = lex::Lexer::new_unnamed("`template ${ `inner ${subst} back` } out` ** 4");
+/// assert_matches!(lexer.advance().tt, lex::Tt::TemplateStart(_));
+/// skip::balanced_templates(&mut lexer, 1)?;
+/// assert_eq!(lexer.here().tt, lex::Tt::StarStar);
+/// # Ok(())
+/// # }
+/// # fn main() {
+/// #     run().unwrap();
+/// # }
+/// ```
 #[inline]
 pub fn balanced_templates<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
@@ -292,6 +316,26 @@ pub fn balanced_templates<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) 
     )
 }
 
+/// Skip a balanced tree of braces, i.e., `{` and `}`.
+///
+/// `nesting` should be nonzero, and describes the depth of brace nesting the lexer is at when entering this function.
+///
+/// # Examples
+///
+/// ```
+/// use esparse::{lex, skip};
+///
+/// # fn run() -> skip::Result<()> {
+/// let mut lexer = lex::Lexer::new_unnamed("{1 * {2 + 3}} ** 4");
+/// assert_eq!(lexer.advance().tt, lex::Tt::Lbrace);
+/// skip::balanced_braces(&mut lexer, 1)?;
+/// assert_eq!(lexer.here().tt, lex::Tt::StarStar);
+/// # Ok(())
+/// # }
+/// # fn main() {
+/// #     run().unwrap();
+/// # }
+/// ```
 #[inline]
 pub fn balanced_braces<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
@@ -303,6 +347,26 @@ pub fn balanced_braces<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> 
     )
 }
 
+/// Skip a balanced tree of brackets, i.e., `[` and `]`.
+///
+/// `nesting` should be nonzero, and describes the depth of bracket nesting the lexer is at when entering this function.
+///
+/// # Examples
+///
+/// ```
+/// use esparse::{lex, skip};
+///
+/// # fn run() -> skip::Result<()> {
+/// let mut lexer = lex::Lexer::new_unnamed("[1 * [2 + 3]] ** 4");
+/// assert_eq!(lexer.advance().tt, lex::Tt::Lbracket);
+/// skip::balanced_brackets(&mut lexer, 1)?;
+/// assert_eq!(lexer.here().tt, lex::Tt::StarStar);
+/// # Ok(())
+/// # }
+/// # fn main() {
+/// #     run().unwrap();
+/// # }
+/// ```
 #[inline]
 pub fn balanced_brackets<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
@@ -314,6 +378,26 @@ pub fn balanced_brackets<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -
     )
 }
 
+/// Skip a balanced tree of parentheses, i.e., `(` and `)`.
+///
+/// `nesting` should be nonzero, and describes the depth of parenthesis nesting the lexer is at when entering this function.
+///
+/// # Examples
+///
+/// ```
+/// use esparse::{lex, skip};
+///
+/// # fn run() -> skip::Result<()> {
+/// let mut lexer = lex::Lexer::new_unnamed("(1 * (2 + 3)) ** 4");
+/// assert_eq!(lexer.advance().tt, lex::Tt::Lparen);
+/// skip::balanced_parens(&mut lexer, 1)?;
+/// assert_eq!(lexer.here().tt, lex::Tt::StarStar);
+/// # Ok(())
+/// # }
+/// # fn main() {
+/// #     run().unwrap();
+/// # }
+/// ```
 #[inline]
 pub fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
