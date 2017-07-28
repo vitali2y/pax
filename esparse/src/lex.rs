@@ -67,7 +67,7 @@ pub enum Tt<'s> {
 
     /// A regular expression literal.
     ///
-    /// The first slice contains the regular expression source (including both slashes), and the second contains the flags.
+    /// The first slice contains the entire regular expression source (including both slashes and the flags), and the second contains just the flags.
     RegExpLit(&'s str, &'s str),
 
     /// A binary numeric literal.
@@ -167,12 +167,11 @@ impl<'s> fmt::Display for Tt<'s> {
             Tt::NumLitOct(s) |
             Tt::NumLitDec(s) |
             Tt::NumLitHex(s) |
+            Tt::RegExpLit(s, _) |
             Tt::TemplateNoSub(s) |
             Tt::TemplateStart(s) |
             Tt::TemplateMiddle(s) |
             Tt::TemplateEnd(s) => write!(f, "{}", s),
-
-            Tt::RegExpLit(s, t) => write!(f, "{}{}", s, t),
 
             Tt::Lbrace => write!(f, "{{"),
             Tt::Lparen => write!(f, "("),
@@ -946,9 +945,10 @@ impl<'f, 's> Lexer<'f, 's> {
                                 }
                             }
                         }
-                        let source = self.stream.str_from(start.pos);
                         let flags_start = self.stream.loc().pos;
                         self.stream.skip_id_continue_chars();
+
+                        let source = self.stream.str_from(start.pos);
                         let flags = self.stream.str_from(flags_start);
                         Tt::RegExpLit(source, flags)
                     }
@@ -4973,8 +4973,8 @@ mod test {
             ;/abc/def
             ;/[/]\//i
         "#, &[
-            Tt::Semi, Tt::RegExpLit(r#"/abc/"#, "def"),
-            Tt::Semi, Tt::RegExpLit(r#"/[/]\//"#, "i"),
+            Tt::Semi, Tt::RegExpLit(r#"/abc/def"#, "def"),
+            Tt::Semi, Tt::RegExpLit(r#"/[/]\//i"#, "i"),
         ]);
     }
 
