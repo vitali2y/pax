@@ -30,6 +30,7 @@ pub struct ExportSpec<'s> {
 }
 
 impl<'s> ExportSpec<'s> {
+    #[inline]
     pub fn new(bind: &'s str, name: &'s str) -> Self {
         ExportSpec {
             name,
@@ -37,6 +38,7 @@ impl<'s> ExportSpec<'s> {
         }
     }
 
+    #[inline]
     pub fn same(name: &'s str) -> Self {
         ExportSpec::new(name, name)
     }
@@ -51,6 +53,7 @@ pub struct Import<'s> {
 }
 
 impl<'s> Import<'s> {
+    #[inline]
     pub fn new(module_source: &'s str, module: Cow<'s, str>) -> Self {
         Import {
             module_source,
@@ -75,12 +78,15 @@ pub struct ImportSpec<'s> {
 }
 
 impl<'s> ImportSpec<'s> {
+    #[inline]
     pub fn new(name: &'s str, bind: &'s str) -> Self {
         ImportSpec {
             name,
             bind,
         }
     }
+
+    #[inline]
     pub fn same(name: &'s str) -> Self {
         ImportSpec::new(name, name)
     }
