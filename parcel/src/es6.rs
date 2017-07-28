@@ -821,12 +821,13 @@ mod test {
         let mut lexer = lex::Lexer::new_unnamed(&cleaned);
         skip_expr(&mut lexer, prec).unwrap();
         let here = lexer.here();
+        let here_pos = here.span.start.pos - here.ws_before.len();
         assert!(
-            here.span.start.pos - here.ws_before.len() <= prefix.len() &&
+            here_pos <= prefix.len() &&
             prefix.len() <= here.span.start.pos,
-            "expected skip_expr to skip to:\n{}@\nbut it skipped to:\n{}@",
-            &cleaned[..prefix.len()],
-            &cleaned[..here.span.start.pos - here.ws_before.len()],
+            "expected skip_expr to skip to:\n{}@{}\nbut it skipped to:\n{}@{}",
+            &cleaned[..prefix.len()], &cleaned[prefix.len()..],
+            &cleaned[..here_pos], &cleaned[here_pos..],
         );
     }
 
