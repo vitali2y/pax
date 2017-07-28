@@ -21,7 +21,9 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 /// The error type for skipping functions.
 #[derive(Debug)]
 pub struct Error {
+    /// The kind of error.
     pub kind: ErrorKind,
+    /// The source code region in which the error appeared.
     pub span: ast::SpanT<String>,
 }
 
