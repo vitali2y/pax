@@ -1378,4 +1378,32 @@ mod test {
             "             ",
         );
     }
+
+    #[test]
+    fn test_import_default_named() {
+        assert_import_form!(
+            "import test , { } from 'a_module' _next",
+            Import {
+                module_source: "'a_module'",
+                module: Cow::Borrowed("a_module"),
+                default_bind: Some("test"),
+                binds: Bindings::Named(vec![]),
+            },
+            "      ",
+        );
+        assert_import_form!(
+            "import test , { name as thing , another , third as one } from 'a_module' _next",
+            Import {
+                module_source: "'a_module'",
+                module: Cow::Borrowed("a_module"),
+                default_bind: Some("test"),
+                binds: Bindings::Named(vec![
+                    ImportSpec::new("name", "thing"),
+                    ImportSpec::same("another"),
+                    ImportSpec::new("third", "one"),
+                ]),
+            },
+            "               ",
+        );
+    }
 }
