@@ -284,7 +284,7 @@ impl<'s> fmt::Display for Tt<'s> {
 ///
 /// # Errors
 ///
-/// Returns [`ParseStrLitErrorEscape`](enum.ParseStrLitError.html) if the given source slice is syntactically invalid, i.e., contains an invalid escape sequence or line continuation.
+/// Returns [`ParseStrLitError`](enum.ParseStrLitError.html) if the given source slice is syntactically invalid, i.e., contains an invalid escape sequence or line continuation.
 ///
 /// # Examples
 ///
