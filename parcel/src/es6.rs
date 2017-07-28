@@ -974,18 +974,18 @@ mod test {
     }
 
     #[test]
-    fn test_skip_expr_primary_arrow() {
+    fn test_skip_expr_arrow() {
         assert_skips_expr("x => x + 1@", Prec::NoComma);
-        assert_skips_expr("(x, y, z) => y => z@", Prec::Primary);
-        assert_skips_expr("a => ({})@", Prec::Primary);
-        assert_skips_expr("(x, y, z) => ({})@", Prec::Primary);
-        assert_skips_expr("abc => ({ x: 1, y: 2 })@", Prec::Primary);
-        assert_skips_expr("(x, y, z) => ({ x: 1, y: 2 })@", Prec::Primary);
-        assert_skips_expr("id => {}@", Prec::Primary);
-        assert_skips_expr("(x, y, z) => {}@", Prec::Primary);
-        assert_skips_expr("s => { call(1, 2) }@", Prec::Primary);
-        assert_skips_expr("(x, y, z) => { call(1, 2) }@", Prec::Primary);
-        assert_skips_expr("() => 1@", Prec::Primary);
+        assert_skips_expr("(x, y, z) => y => z@", Prec::NoComma);
+        assert_skips_expr("a => ({})@", Prec::NoComma);
+        assert_skips_expr("(x, y, z) => ({})@", Prec::NoComma);
+        assert_skips_expr("abc => ({ x: 1, y: 2 })@", Prec::NoComma);
+        assert_skips_expr("(x, y, z) => ({ x: 1, y: 2 })@", Prec::NoComma);
+        assert_skips_expr("id => {}@", Prec::NoComma);
+        assert_skips_expr("(x, y, z) => {}@", Prec::NoComma);
+        assert_skips_expr("s => { call(1, 2) }@", Prec::NoComma);
+        assert_skips_expr("(x, y, z) => { call(1, 2) }@", Prec::NoComma);
+        assert_skips_expr("() => 1@", Prec::NoComma);
     }
 
     #[test]
@@ -996,7 +996,7 @@ mod test {
     }
 
     #[test]
-    fn test_skip_expr_primary_async_arrow() {
+    fn test_skip_expr_async_arrow() {
         assert_skips_expr("async x => x + 1@", Prec::NoComma);
         assert_skips_expr("async (x, y) => x + y@", Prec::NoComma);
         assert_skips_expr("async @\n x => x", Prec::NoComma);
