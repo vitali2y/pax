@@ -110,14 +110,23 @@ pub enum ErrorKind {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.kind {
-            ErrorKind::Expected(s) => write!(f, "expected {}", s)?,
-            ErrorKind::ParseStrLitError(ref error) => write!(f, "invalid string literal: {}", error)?,
-        }
         writeln!(f,
-            " at {}",
+            "{} at {}",
+            self.kind,
             self.span,
         )
+    }
+}
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ErrorKind::Expected(s) => {
+                write!(f, "expected {}", s)
+            }
+            ErrorKind::ParseStrLitError(ref error) => {
+                write!(f, "invalid string literal: {}", error)
+            }
+        }
     }
 }
 
