@@ -6,10 +6,13 @@
 #![warn(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/esparse/0.0.1")]
 
+#[macro_use]
+extern crate matches;
 extern crate memchr;
 
 #[macro_use]
 pub mod lex;
+pub mod skip;
 pub mod ast;
 
 pub use ast::{Loc, Span};

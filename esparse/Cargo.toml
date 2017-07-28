@@ -17,3 +17,4 @@ exclude = [
 
 [dependencies]
 memchr = "1.0.1"
+matches = "0.1"
