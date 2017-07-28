@@ -1194,17 +1194,19 @@ mod test {
         );
     }
 
-    fn assert_import_form(source: &str, result: Import, out: &str) {
-        let mut lexer = lex::Lexer::new_unnamed(source);
-        assert_eq!(lexer.advance().tt, Tt::Import);
-        let mut output = String::new();
-        assert_eq!(parse_import(&mut lexer, &mut output).unwrap(), result);
-        assert_eq!(output, out);
+    macro_rules! assert_import_form {
+        ($source:expr, $result:expr, $out:expr $(,)*) => {{
+            let mut lexer = lex::Lexer::new_unnamed($source);
+            assert_eq!(lexer.advance().tt, Tt::Import);
+            let mut output = String::new();
+            assert_eq!(parse_import(&mut lexer, &mut output).unwrap(), $result);
+            assert_eq!(output, $out);
+        }};
     }
 
     #[test]
     fn test_import_bare() {
-        assert_import_form(
+        assert_import_form!(
             "import 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1214,7 +1216,7 @@ mod test {
             },
             " ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import \"a_module\" _next",
             Import {
                 module_source: "\"a_module\"",
@@ -1228,7 +1230,7 @@ mod test {
 
     #[test]
     fn test_import_default() {
-        assert_import_form(
+        assert_import_form!(
             "import test from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1238,7 +1240,7 @@ mod test {
             },
             "   ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import test from \"a_module\" _next",
             Import {
                 module_source: "\"a_module\"",
@@ -1252,7 +1254,7 @@ mod test {
 
     #[test]
     fn test_import_name_space() {
-        assert_import_form(
+        assert_import_form!(
             "import * as test from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1262,7 +1264,7 @@ mod test {
             },
             "     ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import * as test from \"a_module\" _next",
             Import {
                 module_source: "\"a_module\"",
@@ -1276,7 +1278,7 @@ mod test {
 
     #[test]
     fn test_import_named() {
-        assert_import_form(
+        assert_import_form!(
             "import { } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1286,7 +1288,7 @@ mod test {
             },
             "    ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { } from \"a_module\" _next",
             Import {
                 module_source: "\"a_module\"",
@@ -1296,7 +1298,7 @@ mod test {
             },
             "    ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { name } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1308,7 +1310,7 @@ mod test {
             },
             "     ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { name , } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1320,7 +1322,7 @@ mod test {
             },
             "      ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { name , another } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1333,7 +1335,7 @@ mod test {
             },
             "       ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { name as thing } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1345,7 +1347,7 @@ mod test {
             },
             "       ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { name as thing , } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
@@ -1357,7 +1359,7 @@ mod test {
             },
             "        ",
         );
-        assert_import_form(
+        assert_import_form!(
             "import { name as thing , another , third as one } from 'a_module' _next",
             Import {
                 module_source: "'a_module'",
