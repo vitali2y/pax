@@ -329,6 +329,7 @@ fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Resu
 fn balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut nesting: usize, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
 L: FnMut(Tt) -> bool,
 R: FnMut(Tt) -> bool {
+    debug_assert!(nesting > 0);
     #[cold]
     #[inline(never)]
     fn unbalanced<'f, 's>(lex: &mut lex::Lexer<'f, 's>, expect: &'static str) -> Result<()> {
