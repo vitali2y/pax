@@ -159,7 +159,7 @@ pub enum Tt<'s> {
 
 impl<'s> Tt<'s> {
     /// The source code slice that this token covers.
-    pub fn source(&self) -> &'s str {
+    pub fn as_str(&self) -> &'s str {
         match *self {
             Tt::Id(s) |
             Tt::StrLitSgl(s) |
@@ -272,7 +272,7 @@ impl<'s> Tt<'s> {
 
 impl<'s> fmt::Display for Tt<'s> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.source())
+        f.write_str(self.as_str())
     }
 }
 
