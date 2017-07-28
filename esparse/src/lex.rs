@@ -283,7 +283,7 @@ impl<'s> fmt::Display for Tt<'s> {
 ///
 /// # Errors
 ///
-/// Returns [`ParseStrLitError::InvalidEscape`](enum.ParseStrLitError.html#variant.InvalidEscape) if the given source slice is syntactically invalid.
+/// Returns [`ParseStrLitErrorEscape`](enum.ParseStrLitError.html) if the given source slice is syntactically invalid, i.e., contains an invalid escape sequence or line continuation.
 ///
 /// # Examples
 ///
@@ -307,7 +307,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
         result.push_str(&range[last_pos..bs_pos]);
         let esc_pos = bs_pos + 1;
         if esc_pos >= len {
-            return Err(ParseStrLitError::InvalidEscape)
+            return Err(ParseStrLitError::ExpectedEscape)
         }
         last_pos = esc_pos + 1;
         match bytes[esc_pos] {
@@ -322,12 +322,12 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             b'x' => {
                 let end_pos = last_pos + 2;
                 if end_pos > len {
-                    return Err(ParseStrLitError::InvalidEscape)
+                    return Err(ParseStrLitError::ExpectedHex2)
                 }
 
                 let hex = &range[last_pos..end_pos];
                 let code_point = u8::from_str_radix(hex, 16)
-                .map_err(|_| ParseStrLitError::InvalidEscape)?;
+                .map_err(|_| ParseStrLitError::NotHex2)?;
                 result.push(code_point as char);
 
                 last_pos = end_pos;
@@ -337,14 +337,14 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
                     Some(&b'{') => {
                         let l_pos = last_pos + 1;
                         let r_pos = memchr::memchr(b'}', &bytes[l_pos..])
-                        .ok_or(ParseStrLitError::InvalidEscape)?;
+                        .ok_or(ParseStrLitError::ExpectedRbrace)?;
 
                         let hex = &range[l_pos..r_pos];
                         let code_point = u32::from_str_radix(hex, 16)
-                        .map_err(|_| ParseStrLitError::InvalidEscape)?;
+                        .map_err(|_| ParseStrLitError::NotHex)?;
 
                         let ch = char::from_u32(code_point)
-                        .ok_or(ParseStrLitError::InvalidEscape)?;
+                        .ok_or(ParseStrLitError::NotChar)?;
                         result.push(ch);
 
                         last_pos = r_pos + 1;
@@ -352,15 +352,15 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
                     _ => {
                         let end_pos = last_pos + 4;
                         if end_pos > len {
-                            return Err(ParseStrLitError::InvalidEscape)
+                            return Err(ParseStrLitError::ExpectedHex4)
                         }
 
                         let hex = &range[last_pos..end_pos];
                         let code_point = u32::from_str_radix(hex, 16)
-                        .map_err(|_| ParseStrLitError::InvalidEscape)?;
+                        .map_err(|_| ParseStrLitError::NotHex4)?;
 
                         let ch = char::from_u32(code_point)
-                        .ok_or(ParseStrLitError::InvalidEscape)?;
+                        .ok_or(ParseStrLitError::NotChar)?;
                         result.push(ch);
 
                         last_pos = end_pos;
@@ -401,17 +401,38 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
 ///
 /// Returned by [str_lit_value](fn.str_lit_value.html) when the given string literal is syntactically invalid.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+///
+/// Note that <code>\\<var>c</var></code>, where <var>c</var> is not a [SingleEscapeCharacter](https://tc39.github.io/ecma262/#prod-SingleEscapeCharacter), is *not* an invalid escape sequence. For example, `"\a"` is a valid string literal with the value `"a"`.
 pub enum ParseStrLitError {
-    /// The string literal contains an invalid escape sequence.
-    ///
-    /// Note that <code>\\<var>c</var></code>, where <var>c</var> is not a [SingleEscapeCharacter](https://tc39.github.io/ecma262/#prod-SingleEscapeCharacter), is *not* an invalid escape sequence. For example, `"\a"` is a valid string literal with the value `"a"`.
-    InvalidEscape,
+    /// The string literal contains a `\` at the end of its content.
+    ExpectedEscape,
+    /// The string literal contains an incomplete `\x__` escape sequence, i.e., there are not two characters after the `x`.
+    ExpectedHex2,
+    /// The string literal contains a `\x__` escape sequence but `__` is not a hexadecimal number.
+    NotHex2,
+    /// The string literal contains an incomplete `\u{…}` escape sequence with no closing `}`.
+    ExpectedRbrace,
+    /// The string literal contains a `\u{…}` escape sequence but the code between the braces is not a hexadecimal number.
+    NotHex,
+    /// The string literal contains a Unicode escape sequence but the code point is not a valid Unicode Scalar Value.
+    NotChar,
+    /// The string literal contains an incomplete `\u____` escape sequence, i.e., there are not four characters after the `u`.
+    ExpectedHex4,
+    /// The string literal contains a `\u____` escape sequence but `____` is not a hexadecimal number.
+    NotHex4,
 }
 
 impl fmt::Display for ParseStrLitError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ParseStrLitError::InvalidEscape => f.write_str("invalid escape"),
+            ParseStrLitError::ExpectedEscape => f.write_str("expected escape sequence, but got end of string"),
+            ParseStrLitError::ExpectedHex2 |
+            ParseStrLitError::NotHex2 => f.write_str("expected two hexadecimal characters after '\\x'"),
+            ParseStrLitError::ExpectedRbrace => f.write_str("expected `}` after `\\u{`"),
+            ParseStrLitError::NotHex => f.write_str("expected hexadecimal number in `\\u{…}` escape"),
+            ParseStrLitError::NotChar => f.write_str("hexadecimal number in `\\u{…}` escape is not a Unicode Scalar Value"),
+            ParseStrLitError::ExpectedHex4 |
+            ParseStrLitError::NotHex4 => f.write_str("expected four hexadecimal characters or '{…}' after '\\u'"),
         }
     }
 }
