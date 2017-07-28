@@ -329,29 +329,34 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
         Tt::Lbrace => {
             let mut exports = Vec::new();
             loop {
-                // TODO export {default as default}
                 eat!(lex => tok { source.push_str(tok.ws_before) },
-                    Tt::Id(bind) => eat!(lex => tok { source.push_str(tok.ws_before) },
-                        Tt::Id("as") => eat!(lex => tok { source.push_str(tok.ws_before) },
-                            Tt::Id(name) => {
-                                exports.push(ExportSpec::new(bind, name));
-                                eat!(lex => tok { source.push_str(tok.ws_before) },
-                                    Tt::Rbrace => break,
-                                    Tt::Comma => {},
-                                    _ => expected!(lex, "',' or '}'"),
-                                );
+                    Tt::Id(_) |
+                    Tt::Default => {
+                        let bind = tok.tt.as_str();
+                        eat!(lex => tok { source.push_str(tok.ws_before) },
+                            Tt::Id("as") => eat!(lex => tok { source.push_str(tok.ws_before) },
+                                Tt::Id(_) |
+                                Tt::Default => {
+                                    let name = tok.tt.as_str();
+                                    exports.push(ExportSpec::new(bind, name));
+                                    eat!(lex => tok { source.push_str(tok.ws_before) },
+                                        Tt::Rbrace => break,
+                                        Tt::Comma => {},
+                                        _ => expected!(lex, "',' or '}'"),
+                                    );
+                                },
+                                _ => expected!(lex, "export name after keyword 'as'"),
+                            ),
+                            Tt::Rbrace => {
+                                exports.push(ExportSpec::same(bind));
+                                break
                             },
-                            _ => expected!(lex, "export name after keyword 'as'"),
-                        ),
-                        Tt::Rbrace => {
-                            exports.push(ExportSpec::same(bind));
-                            break
-                        },
-                        Tt::Comma => {
-                            exports.push(ExportSpec::same(bind));
-                        },
-                        _ => expected!(lex, "',' or '}' or keyword 'as'"),
-                    ),
+                            Tt::Comma => {
+                                exports.push(ExportSpec::same(bind));
+                            },
+                            _ => expected!(lex, "',' or '}' or keyword 'as'"),
+                        )
+                    },
                     Tt::Rbrace => break,
                     _ => expected!(lex, "binding name or '}'"),
                 );
@@ -726,27 +731,32 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                 let mut imports = Vec::new();
                 loop {
                     eat!(lex => tok { source.push_str(tok.ws_before) },
-                        Tt::Id(name) => eat!(lex => tok { source.push_str(tok.ws_before) },
-                            Tt::Id("as") => eat!(lex => tok { source.push_str(tok.ws_before) },
-                                Tt::Id(bind) => {
-                                    imports.push(ImportSpec::new(name, bind));
-                                    eat!(lex => tok { source.push_str(tok.ws_before) },
-                                        Tt::Rbrace => break,
-                                        Tt::Comma => {},
-                                        _ => expected!(lex, "',' or '}'"),
-                                    );
+                        Tt::Id(_) |
+                        Tt::Default => {
+                            let name = tok.tt.as_str();
+                            eat!(lex => tok { source.push_str(tok.ws_before) },
+                                Tt::Id("as") => eat!(lex => tok { source.push_str(tok.ws_before) },
+                                    // we don't need | Tt::Default here since it is always a binding name
+                                    Tt::Id(bind) => {
+                                        imports.push(ImportSpec::new(name, bind));
+                                        eat!(lex => tok { source.push_str(tok.ws_before) },
+                                            Tt::Rbrace => break,
+                                            Tt::Comma => {},
+                                            _ => expected!(lex, "',' or '}'"),
+                                        );
+                                    },
+                                    _ => expected!(lex, "binding name after keyword 'as'"),
+                                ),
+                                Tt::Rbrace => {
+                                    imports.push(ImportSpec::same(name));
+                                    break
                                 },
-                                _ => expected!(lex, "binding name after keyword 'as'"),
-                            ),
-                            Tt::Rbrace => {
-                                imports.push(ImportSpec::same(name));
-                                break
-                            },
-                            Tt::Comma => {
-                                imports.push(ImportSpec::same(name));
-                            },
-                            _ => expected!(lex, "',' or '}' or keyword 'as'"),
-                        ),
+                                Tt::Comma => {
+                                    imports.push(ImportSpec::same(name));
+                                },
+                                _ => expected!(lex, "',' or '}' or keyword 'as'"),
+                            )
+                        },
                         Tt::Rbrace => break,
                         _ => expected!(lex, "import specifier or '}'"),
                     );
