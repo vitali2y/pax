@@ -936,7 +936,15 @@ mod test {
     fn test_skip_expr_primary_arrow() {
         assert_skips_expr("x => x + 1@", Prec::NoComma);
         assert_skips_expr("(x, y, z) => y => z@", Prec::Primary);
+        assert_skips_expr("a => ({})@", Prec::Primary);
+        assert_skips_expr("(x, y, z) => ({})@", Prec::Primary);
+        assert_skips_expr("abc => ({ x: 1, y: 2 })@", Prec::Primary);
+        assert_skips_expr("(x, y, z) => ({ x: 1, y: 2 })@", Prec::Primary);
+        assert_skips_expr("id => {}@", Prec::Primary);
+        assert_skips_expr("(x, y, z) => {}@", Prec::Primary);
+        assert_skips_expr("s => { call(1, 2) }@", Prec::Primary);
         assert_skips_expr("(x, y, z) => { call(1, 2) }@", Prec::Primary);
+        assert_skips_expr("() => 1@", Prec::Primary);
     }
 
     #[test]
