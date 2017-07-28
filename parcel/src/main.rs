@@ -909,28 +909,106 @@ fn main() {
         Ok(_) => 0,
         Err(kind) => {
             match kind {
-                CliError::Help => print_help(),
-                CliError::MissingFileName => print_usage(),
-                CliError::DuplicateOption(opt) => println!("{}: option {} specified more than once", APP_NAME, opt),
-                CliError::MissingOptionValue(opt) => println!("{}: missing value for option {}", APP_NAME, opt),
-                CliError::UnknownOption(opt) => println!("{}: unknown option {}", APP_NAME, opt),
-                CliError::UnexpectedArg(arg) => println!("{}: unexpected argument {}", APP_NAME, arg),
-                CliError::BadUsage(arg) => println!("{}: {}", APP_NAME, arg),
+                CliError::Help => {
+                    print_help();
+                }
+                CliError::MissingFileName => {
+                    print_usage();
+                }
+                CliError::DuplicateOption(opt) => {
+                    println!(
+                        "{}: option {} specified more than once",
+                        APP_NAME,
+                        opt,
+                    );
+                }
+                CliError::MissingOptionValue(opt) => {
+                    println!(
+                        "{}: missing value for option {}",
+                        APP_NAME,
+                        opt,
+                    );
+                }
+                CliError::UnknownOption(opt) => {
+                    println!(
+                        "{}: unknown option {}",
+                        APP_NAME,
+                        opt,
+                    );
+                }
+                CliError::UnexpectedArg(arg) => {
+                    println!(
+                        "{}: unexpected argument {}",
+                        APP_NAME,
+                        arg,
+                    );
+                }
+                CliError::BadUsage(arg) => {
+                    println!(
+                        "{}: {}", APP_NAME, arg
+                    );
+                }
 
-                CliError::RequireRoot { context, path } => match context {
-                    None => println!("{}: main module is root path {}", APP_NAME, path.display()),
-                    Some(context) => println!("{}: require of root path {} in {}", APP_NAME, path.display(), context.display()),
-                },
-                CliError::EmptyModuleName { context } => println!("{}: require('') in {}", APP_NAME, context.display()),
-                CliError::ModuleNotFound { context, name } => println!("{}: module '{}' not found in {}", APP_NAME, name, context.display()),
-                CliError::MainNotFound { name } => println!("{}: main module '{}' not found", APP_NAME, name),
+                CliError::RequireRoot { context, path } => {
+                    match context {
+                        None => {
+                            println!(
+                                "{}: main module is root path {}",
+                                APP_NAME,
+                                path.display(),
+                            );
+                        }
+                        Some(context) => {
+                            println!(
+                                "{}: require of root path {} in {}",
+                                APP_NAME,
+                                path.display(),
+                                context.display(),
+                            );
+                        }
+                    }
+                }
+                CliError::EmptyModuleName { context } => {
+                    println!(
+                        "{}: require('') in {}",
+                        APP_NAME,
+                        context.display(),
+                    );
+                }
+                CliError::ModuleNotFound { context, name } => {
+                    println!(
+                        "{}: module '{}' not found in {}",
+                        APP_NAME,
+                        name,
+                        context.display(),
+                    );
+                }
+                CliError::MainNotFound { name } => {
+                    println!(
+                        "{}: main module '{}' not found",
+                        APP_NAME,
+                        name,
+                    );
+                }
 
-                CliError::Io(inner) => println!("{}: {}", APP_NAME, inner),
-                CliError::Json(inner) => println!("{}: {}", APP_NAME, inner),
-                CliError::Notify(inner) => println!("{}: {}", APP_NAME, inner),
-                CliError::Es6(inner) => println!("{}: {}", APP_NAME, inner),
-                CliError::ParseStrLit(inner) => println!("{}: {}", APP_NAME, inner),
-                CliError::Box(inner) => println!("{}: {:?}", APP_NAME, inner),
+                CliError::Io(inner) => {
+                    println!("{}: {}", APP_NAME, inner);
+                }
+                CliError::Json(inner) => {
+                    println!("{}: {}", APP_NAME, inner);
+                }
+                CliError::Notify(inner) => {
+                    println!("{}: {}", APP_NAME, inner);
+                }
+                CliError::Es6(inner) => {
+                    println!("{}: {}", APP_NAME, inner);
+                }
+                CliError::ParseStrLit(inner) => {
+                    println!("{}: {}", APP_NAME, inner);
+                }
+                CliError::Box(inner) => {
+                    println!("{}: {:?}", APP_NAME, inner);
+                }
             }
             1
         }
