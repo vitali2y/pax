@@ -1,5 +1,4 @@
-//! A fast JavaScript parser. Currently only a [lexical analyzer](lex/index.html).
-//!
+//! A fast JavaScript parser. Currently only a [lexical analyzer](lex/index.html) and a [skipper](skip/index.html).
 
 #![cfg_attr(test, feature(test))]
 
