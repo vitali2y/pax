@@ -325,6 +325,43 @@ pub fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> 
     )
 }
 
+/// Skip a balanced tree of delimiters.
+///
+/// An opening delimiter is one for which `l` returns `true`, and a closing delimiter is one for which `r` returns true.
+///
+/// `nesting` should be nonzero, and describes the depth of nesting the lexer is at when entering this function.
+///
+/// `expect` should be a description of the closing delimiter. An error is emitted with `expect` if the end of the source stream is reached before all opening delimiters are closed.
+///
+/// The common cases for this function are implemented for you in the [`skip` module](index.html):
+///
+/// - [`skip::balanced_parens`](fn.balanced_parens.html) for `(` and `)`
+/// - [`skip::balanced_brackets`](fn.balanced_brackets.html) for `[` and `]`
+/// - [`skip::balanced_braces`](fn.balanced_braces.html) for `{` and `}`
+/// - [`skip::balanced_templates`](fn.balanced_braces.html) for nested template literals
+///
+/// # Examples
+///
+/// ```
+/// use esparse::{lex, skip};
+///
+/// # fn run() -> skip::Result<()> {
+/// let mut lexer = lex::Lexer::new_unnamed("<1 * <2 + 3> > ** 4");
+/// assert_eq!(lexer.advance().tt, lex::Tt::Lt);
+/// skip::balanced(
+///     &mut lexer,
+///     1,
+///     |tt| tt == lex::Tt::Lt,
+///     |tt| tt == lex::Tt::Gt,
+///     "'>'",
+/// )?;
+/// assert_eq!(lexer.here().tt, lex::Tt::StarStar);
+/// # Ok(())
+/// # }
+/// # fn main() {
+/// #     run().unwrap();
+/// # }
+/// ```
 #[inline]
 pub fn balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut nesting: usize, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
 L: FnMut(Tt) -> bool,
