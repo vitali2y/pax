@@ -31,7 +31,7 @@ mod es6;
 const HEAD_JS: &'static str = include_str!("head.js");
 const TAIL_JS: &'static str = include_str!("tail.js");
 
-fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s, str>>, lex::ParseStrLitError> {
+fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s, str>>, CliError> {
     // TODO should we panic on dynamic requires?
     let mut deps = HashSet::new();
     loop {
