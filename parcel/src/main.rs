@@ -31,9 +31,9 @@ mod es6;
 const HEAD_JS: &'static str = include_str!("head.js");
 const TAIL_JS: &'static str = include_str!("tail.js");
 
-#[inline]
-fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>> {
+fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s, str>>, lex::ParseStrLitError> {
     // TODO should we panic on dynamic requires?
+    let mut deps = HashSet::new();
     loop {
         eat!(lex,
             // Tt::Id(s) if s == "require" => eat!(lex,
@@ -42,8 +42,7 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
                     Tt::StrLitSgl(s) |
                     Tt::StrLitDbl(s) => eat!(lex,
                         Tt::Rparen => {
-                            // TODO handle error
-                            return Some(lex::str_lit_value(s).unwrap())
+                            deps.insert(lex::str_lit_value(s)?);
                         },
                         _ => {},
                     ),
@@ -68,7 +67,7 @@ fn scan_for_require<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Option<Cow<'s, str>
                 // ),
                 _ => {},
             ),
-            Tt::Eof => return None,
+            Tt::Eof => return Ok(deps),
             _ => {
                 lex.advance();
             },
@@ -884,6 +883,7 @@ pub enum CliError {
     Json(json::Error),
     Notify(notify::Error),
     Es6(es6::Error),
+    ParseStrLit(lex::ParseStrLitError),
     Box(Box<Any + Send + 'static>),
 }
 impl From<io::Error> for CliError {
@@ -904,6 +904,11 @@ impl From<notify::Error> for CliError {
 impl From<es6::Error> for CliError {
     fn from(inner: es6::Error) -> CliError {
         CliError::Es6(inner)
+    }
+}
+impl From<lex::ParseStrLitError> for CliError {
+    fn from(inner: lex::ParseStrLitError) -> CliError {
+        CliError::ParseStrLit(inner)
     }
 }
 impl From<Box<Any + Send + 'static>> for CliError {
@@ -934,6 +939,7 @@ fn main() {
                 CliError::Json(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Notify(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Es6(inner) => println!("{}: {}", APP_NAME, inner),
+                CliError::ParseStrLit(inner) => println!("{}: {}", APP_NAME, inner),
                 CliError::Box(inner) => println!("{}: {:?}", APP_NAME, inner),
             }
             1
@@ -1202,12 +1208,11 @@ impl Worker {
         let suffix;
 
         let deps = {
-            let mut deps = HashSet::new();
             let path_string = module.to_string_lossy();
-
             // module.to_str().ok_or("<path with invalid utf-8>")
             let mut lexer = lex::Lexer::new(path_string.as_ref(), &source);
 
+            let deps;
             let ext = module.extension();
             if matches!(ext, Some(s) if s == "mjs") {
                 let module = es6::module_to_cjs(&mut lexer, false)?;
@@ -1218,6 +1223,7 @@ impl Worker {
                 new_source = Some(module.source);
 
             } else if matches!(ext, Some(s) if s == "json") {
+                deps = HashSet::new();
                 prefix = "module.exports =".to_owned();;
                 suffix = String::new();
 
@@ -1230,9 +1236,7 @@ impl Worker {
                 new_source = Some(module.source);
 
             } else {
-                while let Some(path) = scan_for_require(&mut lexer) {
-                    deps.insert(path);
-                }
+                deps = cjs_parse_deps(&mut lexer)?;
                 prefix = String::new();
                 suffix = String::new();
             }
