@@ -15,6 +15,7 @@
 //! ```
 
 use std::{char, mem, fmt};
+use std::error::Error;
 use std::borrow::Cow;
 use memchr;
 
@@ -422,18 +423,24 @@ pub enum ParseStrLitError {
     NotHex4,
 }
 
+impl Error for ParseStrLitError {
+    fn description(&self) -> &str {
+        match *self {
+            ParseStrLitError::ExpectedEscape => "expected escape sequence, but got end of string",
+            ParseStrLitError::ExpectedHex2 |
+            ParseStrLitError::NotHex2 => "expected two hexadecimal characters after '\\x'",
+            ParseStrLitError::ExpectedRbrace => "expected `}` after `\\u{`",
+            ParseStrLitError::NotHex => "expected hexadecimal number in `\\u{…}` escape",
+            ParseStrLitError::NotChar => "hexadecimal number in `\\u{…}` escape is not a Unicode Scalar Value",
+            ParseStrLitError::ExpectedHex4 |
+            ParseStrLitError::NotHex4 => "expected four hexadecimal characters or '{…}' after '\\u'",
+        }
+    }
+}
+
 impl fmt::Display for ParseStrLitError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ParseStrLitError::ExpectedEscape => f.write_str("expected escape sequence, but got end of string"),
-            ParseStrLitError::ExpectedHex2 |
-            ParseStrLitError::NotHex2 => f.write_str("expected two hexadecimal characters after '\\x'"),
-            ParseStrLitError::ExpectedRbrace => f.write_str("expected `}` after `\\u{`"),
-            ParseStrLitError::NotHex => f.write_str("expected hexadecimal number in `\\u{…}` escape"),
-            ParseStrLitError::NotChar => f.write_str("hexadecimal number in `\\u{…}` escape is not a Unicode Scalar Value"),
-            ParseStrLitError::ExpectedHex4 |
-            ParseStrLitError::NotHex4 => f.write_str("expected four hexadecimal characters or '{…}' after '\\u'"),
-        }
+        f.write_str(self.description())
     }
 }
 
