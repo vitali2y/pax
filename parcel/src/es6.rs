@@ -1001,6 +1001,7 @@ mod test {
     #[test]
     fn test_skip_expr_primary_await() {
         assert_skips_expr("await a@", Prec::Primary);
+        assert_skips_expr("await @\n a", Prec::Primary);
     }
 
     #[test]
