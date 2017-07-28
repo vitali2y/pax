@@ -955,6 +955,14 @@ mod test {
     }
 
     #[test]
+    fn test_skip_expr_primary_async_arrow() {
+        assert_skips_expr("async x => x + 1@", Prec::NoComma);
+        assert_skips_expr("async (x, y) => x + y@", Prec::NoComma);
+        assert_skips_expr("async @\n x => x", Prec::NoComma);
+        assert_skips_expr("async @\n (x, y) => x", Prec::NoComma);
+    }
+
+    #[test]
     fn test_skip_expr_primary_await() {
         assert_skips_expr("await a@", Prec::Primary);
     }
