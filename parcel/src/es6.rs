@@ -22,11 +22,13 @@ pub enum Export<'s> {
     Named(Vec<ExportSpec<'s>>),
     NamedFrom(Vec<ExportSpec<'s>>, Cow<'s, str>),
 }
+
 #[derive(Debug)]
 pub struct ExportSpec<'s> {
     bind: &'s str,
     name: &'s str,
 }
+
 impl<'s> ExportSpec<'s> {
     pub fn new(bind: &'s str, name: &'s str) -> Self {
         ExportSpec {
@@ -34,6 +36,7 @@ impl<'s> ExportSpec<'s> {
             bind,
         }
     }
+
     pub fn same(name: &'s str) -> Self {
         ExportSpec::new(name, name)
     }
@@ -46,6 +49,7 @@ pub struct Import<'s> {
     default_bind: Option<&'s str>,
     binds: Bindings<'s>,
 }
+
 impl<'s> Import<'s> {
     pub fn new(module_source: &'s str, module: Cow<'s, str>) -> Self {
         Import {
@@ -63,11 +67,13 @@ pub enum Bindings<'s> {
     NameSpace(&'s str),
     Named(Vec<ImportSpec<'s>>),
 }
+
 #[derive(Debug)]
 pub struct ImportSpec<'s> {
     name: &'s str,
     bind: &'s str,
 }
+
 impl<'s> ImportSpec<'s> {
     pub fn new(name: &'s str, bind: &'s str) -> Self {
         ImportSpec {
@@ -87,12 +93,15 @@ pub struct CjsModule<'s> {
     pub source_suffix: String,
     pub deps: HashSet<Cow<'s, str>>,
 }
+
 pub type Result<T> = ::std::result::Result<T, Error>;
+
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
     span: esparse::ast::SpanT<String>,
 }
+
 #[derive(Debug)]
 pub enum ErrorKind {
     Expected(&'static str),
