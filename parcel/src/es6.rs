@@ -499,13 +499,38 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                 ),
                 _ => {},
             ),
+            Tt::Id("async") => {
+                if lex.here().nl_before {
+                    return Ok(())
+                }
+                eat!(lex,
+                    Tt::Function => {
+                        eat!(lex,
+                            Tt::Id(_) => {},
+                            _ => {},
+                        );
+                        eat!(lex,
+                            Tt::Lparen => skip_balanced_parens(lex, 1)?,
+                            _ => expected!(lex, "formal parameter list"),
+                        );
+                        eat!(lex,
+                            Tt::Lbrace => skip_balanced_braces(lex, 1)?,
+                            _ => expected!(lex, "function body"),
+                        );
+                        had_primary = true;
+                        break
+                    },
+                    _ => {},
+                );
+            },
             Tt::Yield => {
                 if lex.here().nl_before {
                     return Ok(())
                 }
-                if lex.here().tt == Tt::Star {
-                    lex.advance();
-                }
+                eat!(lex,
+                    Tt::Star => {},
+                    _ => {},
+                );
             },
             _ => break,
         );
