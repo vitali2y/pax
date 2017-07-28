@@ -158,7 +158,8 @@ pub enum Tt<'s> {
 }
 
 impl<'s> Tt<'s> {
-    fn source(&self) -> &'s str {
+    /// The source code slice that this token covers.
+    pub fn source(&self) -> &'s str {
         match *self {
             Tt::Id(s) |
             Tt::StrLitSgl(s) |
