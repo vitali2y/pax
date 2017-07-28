@@ -1099,10 +1099,11 @@ mod test {
     #[test]
     fn test_export_list() {
         assert_export_form(
-            "export {va as vaz, vb} _next",
+            "export {va as vaz, vb, something as default} _next",
             Export::Named(vec![
                 ExportSpec::new("va", "vaz"),
                 ExportSpec::same("vb"),
+                ExportSpec::new("something", "default"),
             ]),
             "    ",
         );
