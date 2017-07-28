@@ -874,7 +874,7 @@ pub enum CliError {
     UnexpectedArg(String),
     BadUsage(&'static str),
 
-    RequireRoot { path: PathBuf },
+    RequireRoot { context: Option<PathBuf>, path: PathBuf },
     EmptyModuleName { context: PathBuf },
     ModuleNotFound { context: PathBuf, name: String },
     MainNotFound { name: String },
@@ -930,7 +930,10 @@ fn main() {
                 CliError::UnexpectedArg(arg) => println!("{}: unexpected argument {}", APP_NAME, arg),
                 CliError::BadUsage(arg) => println!("{}: {}", APP_NAME, arg),
 
-                CliError::RequireRoot { path } => println!("{}: require of root path {}", APP_NAME, path.display()), // TODO in what module
+                CliError::RequireRoot { context, path } => match context {
+                    None => println!("{}: main module is root path {}", APP_NAME, path.display()),
+                    Some(context) => println!("{}: require of root path {} in {}", APP_NAME, path.display(), context.display()),
+                },
                 CliError::EmptyModuleName { context } => println!("{}: require('') in {}", APP_NAME, context.display()),
                 CliError::ModuleNotFound { context, name } => println!("{}: module '{}' not found in {}", APP_NAME, name, context.display()),
                 CliError::MainNotFound { name } => println!("{}: main module '{}' not found", APP_NAME, name),
@@ -1042,7 +1045,7 @@ impl Worker {
 
     fn resolve_main(input_options: InputOptions, mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
         dir.append_resolving(Path::new(name));
-        Self::resolve_path_or_module(input_options, dir)?.ok_or_else(|| {
+        Self::resolve_path_or_module(input_options, None, dir)?.ok_or_else(|| {
             CliError::MainNotFound {
                 name: name.to_owned(),
             }
@@ -1062,7 +1065,7 @@ impl Worker {
                 debug_assert!(did_pop);
                 dir.append_resolving(Path::new(name));
                 Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(self.input_options, dir)?.ok_or_else(|| {
+                    Self::resolve_path_or_module(self.input_options, Some(context), dir)?.ok_or_else(|| {
                         CliError::ModuleNotFound {
                             context: context.to_owned(),
                             name: name.to_owned(),
@@ -1072,7 +1075,7 @@ impl Worker {
             }
             Some(&b'/') => {
                 Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(self.input_options, PathBuf::from(name))?.ok_or_else(|| {
+                    Self::resolve_path_or_module(self.input_options, Some(context), PathBuf::from(name))?.ok_or_else(|| {
                         CliError::ModuleNotFound {
                             context: context.to_owned(),
                             name: name.to_owned(),
@@ -1096,7 +1099,7 @@ impl Worker {
                         _ => {}
                     }
                     let new_path = dir.join(&suffix);
-                    match Self::resolve_path_or_module(self.input_options, new_path)? {
+                    match Self::resolve_path_or_module(self.input_options, Some(context), new_path)? {
                         Some(result) => return Ok(Resolved::Normal(result)),
                         None => {}
                     };
@@ -1109,7 +1112,7 @@ impl Worker {
             }
         }
     }
-    fn resolve_path_or_module(input_options: InputOptions, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path_or_module(input_options: InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         path.push("package.json");
         let result = fs::File::open(&path);
         path.pop();
@@ -1133,16 +1136,17 @@ impl Worker {
                 // }
             }
         }
-        Self::resolve_path(input_options, path)
+        Self::resolve_path(input_options, context, path)
     }
 
-    fn resolve_path(input_options: InputOptions, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path(input_options: InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         // <path>
         if path.is_file() {
             return Ok(Some(path))
         }
 
         let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
+            context: context.map(|p| p.to_owned()),
             path: path.clone(),
         })?.to_owned();
 
