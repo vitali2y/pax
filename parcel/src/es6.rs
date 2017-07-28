@@ -1066,11 +1066,13 @@ mod test {
         }};
     }
 
-    fn assert_export_form_panic(source: &str) {
-        let mut lexer = lex::Lexer::new_unnamed(source);
-        assert_eq!(lexer.advance().tt, Tt::Export);
-        let mut output = String::new();
-        parse_export(&mut lexer, &mut output).unwrap_err();
+    macro_rules! assert_export_form_panic {
+        ($source:expr $(,)*) => {{
+            let mut lexer = lex::Lexer::new_unnamed($source);
+            assert_eq!(lexer.advance().tt, Tt::Export);
+            let mut output = String::new();
+            parse_export(&mut lexer, &mut output).unwrap_err();
+        }};
     }
 
     #[test]
@@ -1103,9 +1105,9 @@ mod test {
 
     #[test]
     fn test_export_default_exprs_panic() {
-        assert_export_form_panic("export default class {} _next");
-        assert_export_form_panic("export default function() {} _next");
-        assert_export_form_panic("export default function*() {} _next");
+        assert_export_form_panic!("export default class {} _next");
+        assert_export_form_panic!("export default function() {} _next");
+        assert_export_form_panic!("export default function*() {} _next");
     }
 
     #[test]
