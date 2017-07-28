@@ -282,7 +282,7 @@ pub fn expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
 }
 
 #[inline]
-fn balanced_templates<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+pub fn balanced_templates<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
         lex,
         nesting,
@@ -293,7 +293,7 @@ fn balanced_templates<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> R
 }
 
 #[inline]
-fn balanced_braces<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+pub fn balanced_braces<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
         lex,
         nesting,
@@ -304,7 +304,7 @@ fn balanced_braces<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Resu
 }
 
 #[inline]
-fn balanced_brackets<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+pub fn balanced_brackets<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
         lex,
         nesting,
@@ -315,7 +315,7 @@ fn balanced_brackets<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Re
 }
 
 #[inline]
-fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
+pub fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Result<()> {
     balanced(
         lex,
         nesting,
@@ -326,7 +326,7 @@ fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> Resu
 }
 
 #[inline]
-fn balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut nesting: usize, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
+pub fn balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut nesting: usize, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
 L: FnMut(Tt) -> bool,
 R: FnMut(Tt) -> bool {
     debug_assert!(nesting > 0);
