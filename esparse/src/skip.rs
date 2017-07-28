@@ -89,6 +89,7 @@ pub fn expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
             Tt::Delete |
             Tt::Void |
             Tt::Typeof |
+            Tt::Await |
             Tt::DotDotDot |
             Tt::PlusPlus |
             Tt::MinusMinus => {},
@@ -125,12 +126,6 @@ pub fn expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     },
                     _ => {},
                 );
-            },
-            Tt::Await => {
-                println!("at {}", lex.here().tt);
-                if lex.here().nl_before {
-                    return Ok(())
-                }
             },
             Tt::Yield => {
                 if lex.here().nl_before {
@@ -630,7 +625,7 @@ mod test {
     #[test]
     fn test_skip_expr_primary_await() {
         assert_skips_expr("await a@", Prec::Primary);
-        assert_skips_expr("await @\n a", Prec::Primary);
+        assert_skips_expr("await \n a@", Prec::Primary);
     }
 
     #[test]
