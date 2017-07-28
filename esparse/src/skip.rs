@@ -1,4 +1,4 @@
-//! Functions for skipping syntactic constructs without retaining their structure.
+//! Skip syntactic constructs without retaining their structure.
 //!
 //! In general, skipping functions are overly permissive, i.e., they may accept invalid constructs, but they will never reject valid ones. They will also never skip too far.
 
