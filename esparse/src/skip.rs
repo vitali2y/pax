@@ -45,7 +45,7 @@ impl fmt::Display for Error {
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ErrorKind::Expected(s) => write!(f, "expected {}", s)
+            ErrorKind::Expected(s) => write!(f, "expected {}", s),
         }
     }
 }
