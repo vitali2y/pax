@@ -1406,4 +1406,28 @@ mod test {
             "               ",
         );
     }
+
+    #[test]
+    fn test_import_default_name_space() {
+        assert_import_form!(
+            "import def , * as test from 'a_module' _next",
+            Import {
+                module_source: "'a_module'",
+                module: Cow::Borrowed("a_module"),
+                default_bind: Some("def"),
+                binds: Bindings::NameSpace("test"),
+            },
+            "       ",
+        );
+        assert_import_form!(
+            "import def , * as test from \"a_module\" _next",
+            Import {
+                module_source: "\"a_module\"",
+                module: Cow::Borrowed("a_module"),
+                default_bind: Some("def"),
+                binds: Bindings::NameSpace("test"),
+            },
+            "       ",
+        );
+    }
 }
