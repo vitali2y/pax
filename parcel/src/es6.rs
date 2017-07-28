@@ -1170,6 +1170,15 @@ mod test {
     }
 
     #[test]
+    fn test_export_ns_from() {
+        assert_export_form(
+            "export * from 'a_module' _next",
+            Export::AllFrom(Cow::Borrowed("a_module")),
+            "   ",
+        );
+    }
+
+    #[test]
     fn test_export_list_from() {
         assert_export_form(
             "export {va as vaz, vb, something as default, default as something_else, default, default as default} from 'a_module' _next",
