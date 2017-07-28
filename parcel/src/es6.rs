@@ -485,7 +485,6 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
             Tt::Delete |
             Tt::Void |
             Tt::Typeof |
-            Tt::Id("await") |
             Tt::DotDotDot |
             Tt::PlusPlus |
             Tt::MinusMinus => {},
@@ -522,6 +521,12 @@ fn skip_expr<'f, 's>(lex: &mut lex::Lexer<'f, 's>, prec: Prec) -> Result<()> {
                     },
                     _ => {},
                 );
+            },
+            Tt::Await => {
+                println!("at {}", lex.here().tt);
+                if lex.here().nl_before {
+                    return Ok(())
+                }
             },
             Tt::Yield => {
                 if lex.here().nl_before {
