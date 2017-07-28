@@ -365,19 +365,6 @@ fn write_json_string<W: io::Write>(w: &mut W, string: &str) -> io::Result<()> {
     Ok(())
 }
 
-// fn write_vlq<W: io::Write>(w: &mut W, n: isize) -> io::Result<()> {
-//     let sign = n < 0;
-//     let n = if sign { -n } else { n } as usize;
-//     let y = (n & 0xf) << 1 | sign as usize;
-//     let r = n >> 4;
-//     while r > 0 {
-//         y |= 0x20;
-//         w.write_all(&[B64[y]])?;
-//         y = r & 0x1f;
-//         r >>= 5;
-//     }
-//     w.write_all(&[B64[y]])
-// }
 fn vlq(buf: &mut [u8; 13], n: isize) -> &[u8] {
     let sign = n < 0;
     let n = if sign { -n } else { n } as usize;
