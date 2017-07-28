@@ -4358,6 +4358,8 @@ impl<'s> Stream<'s> {
     }
 
     /// Advances past any whitespace or JavaScript comments.
+    ///
+    /// Returns <code>(<var>ws</var>, <var>nl</var>)</code> where <var>ws</var> is a slice covering the whitespace skipped and <var>nl</var> is true if and only if the whitespace contained a newline.
     #[inline]
     pub fn skip_ws(&mut self) -> (&'s str, bool) {
         let start = self.loc;
