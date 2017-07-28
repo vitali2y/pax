@@ -2,7 +2,7 @@
 //!
 //! In general, skipping functions are overly permissive, i.e., they may accept invalid constructs, but they will never reject valid ones. They will also never skip too far.
 
-use std::fmt;
+use std::{fmt, error};
 use ast;
 use lex::{self, Tt};
 
@@ -34,6 +34,14 @@ pub enum ErrorKind {
     ///
     /// The slice names the expected construct.
     Expected(&'static str),
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match self.kind {
+            ErrorKind::Expected(_) => "expected something, but got something else",
+        }
+    }
 }
 
 impl fmt::Display for Error {
