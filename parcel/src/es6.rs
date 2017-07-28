@@ -44,7 +44,7 @@ impl<'s> ExportSpec<'s> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Import<'s> {
     module_source: &'s str,
     module: Cow<'s, str>,
@@ -64,14 +64,14 @@ impl<'s> Import<'s> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Bindings<'s> {
     None,
     NameSpace(&'s str),
     Named(Vec<ImportSpec<'s>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ImportSpec<'s> {
     name: &'s str,
     bind: &'s str,
