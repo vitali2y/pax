@@ -192,8 +192,10 @@ impl<'a, 'b> Writer<'a, 'b> {
         let mut buf = [0u8; 13];
         for (index, &(_, module)) in modules.iter().enumerate() {
             w.write_all(b";")?;
-            for _ in 0..count_lines(&module.source.prefix) {
-                w.write_all(b";")?;
+            if !module.source.prefix.is_empty() {
+                for _ in 0..count_lines(&module.source.prefix) {
+                    w.write_all(b";")?;
+                }
             }
             for i in 0..count_lines(&module.source.body) {
                 w.write_all(b"A")?;
