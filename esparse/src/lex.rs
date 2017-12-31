@@ -450,21 +450,32 @@ impl fmt::Display for ParseStrLitError {
     }
 }
 
+/// The specific kind of error that occurred.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ErrorKind {
     // Expected(&'static str),
+    /// An exponent was expected but not found in a numeric literal.
     ExpectedExponent,
+    /// The end of a template literal (<code>\`…\`</code>) was missing.
     UnterminatedTemplateLiteral,
+    /// The end of a string literal (`'…'` or `"…"`) was missing.
     UnterminatedStringLiteral,
+    /// The end of a regular expression literal (`/…/…`) was missing.
     UnterminatedRegExpLiteral,
+    /// The end of a multiline comment (`/* … */`) was missing.
     UnterminatedMultilineComment,
+    /// A right brace (`}`) unmatched by a left one was encountered.
     UnmatchedRbrace,
+    /// An unexpected character was encountered.
     Unexpected(char),
 }
 
+/// The error type for lexical analysis.
 #[derive(Debug)]
 pub struct Error {
+    /// The kind of error.
     pub kind: ErrorKind,
+    /// The source code region in which the error appeared.
     pub span: SpanT<String>,
 }
 
