@@ -3198,6 +3198,7 @@ impl<'s> Stream<'s> {
         self.here.map_or(false, |cc| c == cc)
     }
 
+    /// Advances the stream to the end of the file.
     pub fn exhaust(&mut self) {
         while let Some(_) = self.advance() {}
     }
