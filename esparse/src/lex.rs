@@ -158,7 +158,7 @@ pub enum Tt<'s> {
 
     /// The error token.
     ///
-    /// This token is emitted endlessly after the lexical analyzer reaches an error. You can retrieve the error with [TODO]().
+    /// This token is emitted endlessly after the lexical analyzer reaches an error. You can retrieve specific error information with [`Lexer::error`](struct.Lexer.html#method.error) or [`Lexer::take_error`](struct.Lexer.html#method.take_error).
     Err,
 }
 
