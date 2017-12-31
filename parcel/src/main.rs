@@ -1310,6 +1310,10 @@ impl Worker {
                 suffix = String::new();
             }
 
+            if let Some(error) = lexer.take_error() {
+                return Err(From::from(error))
+            }
+
             deps.into_iter()
                 .map(|s| s.into_owned())
                 .collect()
