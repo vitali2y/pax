@@ -714,6 +714,17 @@ impl<'f, 's> Lexer<'f, 's> {
         mem::replace(&mut self.here, tok)
     }
 
+    /// The most recent error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use esparse::lex::Lexer;
+    ///
+    /// let mut lexer = Lexer::new_unnamed("}");
+    /// lexer.advance();
+    /// println!("The error is: {:?}", lexer.error().unwrap());
+    /// ```
     #[inline]
     pub fn error(&self) -> Option<&Error> {
         self.error.as_ref()
