@@ -1293,7 +1293,7 @@ impl Worker {
 
             } else if matches!(ext, Some(s) if s == "json") {
                 deps = HashSet::new();
-                prefix = "module.exports =".to_owned();;
+                prefix = "module.exports =".to_owned();
                 suffix = String::new();
 
             } else if self.input_options.es6_syntax_everywhere {
