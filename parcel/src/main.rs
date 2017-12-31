@@ -540,7 +540,6 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     }
 
     worker.quit.store(true, Ordering::Relaxed);
-
     for child in children {
         child.join()?;
     }
