@@ -85,11 +85,11 @@ pub enum Tt<'s> {
     /// The slice includes the `0x` or `0X` prefix.
     NumLitHex(&'s str),
 
-    /// A template without substitutions (e.g., `\`template\``).
+    /// A template without substitutions (e.g., <code>\`template\`</code>).
     ///
     /// The slice includes both backticks.
     TemplateNoSub(&'s str),
-    /// The first literal part of a template with substitutions (e.g., `\`template${`).
+    /// The first literal part of a template with substitutions (e.g., <code>\`template${</code>).
     ///
     /// The slice includes the opening backtick and the `$[` sigil.
     TemplateStart(&'s str),
@@ -97,7 +97,7 @@ pub enum Tt<'s> {
     ///
     /// The slice includes the `}` and `$[` sigils.
     TemplateMiddle(&'s str),
-    /// A middle part of a template with substitutions (e.g., `}template\``).
+    /// A middle part of a template with substitutions (e.g., <code>}template\`</code>).
     ///
     /// The slice includes the `}` sigil and the closing backtick.
     TemplateEnd(&'s str),
