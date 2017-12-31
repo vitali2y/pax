@@ -128,7 +128,7 @@ impl From<skip::Error> for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f,
+        write!(f,
             "{} at {}",
             self.kind,
             self.span,
