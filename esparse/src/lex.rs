@@ -156,6 +156,11 @@ pub enum Tt<'s> {
     ///
     /// This token is emitted endlessly after the lexical analyzer has reached the end of the source code.
     Eof,
+
+    /// The error token.
+    ///
+    /// This token is emitted endlessly after the lexical analyzer reaches an error. You can retrieve the error with [TODO]().
+    Err,
 }
 
 impl<'s> Tt<'s> {
@@ -267,6 +272,7 @@ impl<'s> Tt<'s> {
             Tt::Yield => "yield",
 
             Tt::Eof => "",
+            Tt::Err => "",
         }
     }
 }
