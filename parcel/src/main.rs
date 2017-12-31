@@ -492,6 +492,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
         // eprintln!("{:?}", work_done);
         let work_done = match work_done {
             Err(error) => {
+                worker.quit.store(true, Ordering::Relaxed);
                 return Err(error)
             }
             Ok(work_done) => {
