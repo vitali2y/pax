@@ -739,6 +739,23 @@ impl<'f, 's> Lexer<'f, 's> {
             }
         };
 
+        macro_rules! mark_error {
+            ($kind:expr) => {{
+                let span = Span::new(self.file_name, start, self.stream.loc());
+                self.error = Some(Error {
+                    kind: $kind,
+                    span: span.with_owned(),
+                });
+                self.stream.exhaust();
+                return Tok {
+                    tt: Tt::Err,
+                    span,
+                    ws_before,
+                    nl_before,
+                }
+            }};
+        }
+
         let tt = match here {
             '{' => {
                 self.stack.push(mem::replace(&mut self.frame, LexFrame::Brace));
@@ -862,7 +879,7 @@ impl<'f, 's> Lexer<'f, 's> {
                                 }
                                 Some(_) => {}
                                 None => {
-                                    panic!("unterminated template literal")
+                                    mark_error!(ErrorKind::UnterminatedTemplateLiteral)
                                 }
                             }
                         }
@@ -876,7 +893,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         Tt::Rbrace
                     }
                     LexFrame::Outer => {
-                        panic!("unmatched }")
+                        mark_error!(ErrorKind::UnmatchedRbrace)
                     }
                 }
             }
@@ -907,7 +924,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         }
                         Some(_) => {}
                         None => {
-                            panic!("unterminated template literal")
+                            mark_error!(ErrorKind::UnterminatedTemplateLiteral)
                         }
                     }
                 }
@@ -933,13 +950,11 @@ impl<'f, 's> Lexer<'f, 's> {
                         | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
                         | Some('\u{2028}') // LINE SEPARATOR          <LS>
                         | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                        | None
                         => {
-                            panic!("unterminated string literal")
+                            mark_error!(ErrorKind::UnterminatedStringLiteral)
                         }
                         Some(_) => {}
-                        None => {
-                            panic!("unterminated string literal")
-                        }
                     }
                 }
                 Tt::StrLitDbl(self.stream.str_from(start.pos))
@@ -963,13 +978,11 @@ impl<'f, 's> Lexer<'f, 's> {
                         | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
                         | Some('\u{2028}') // LINE SEPARATOR          <LS>
                         | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                        | None
                         => {
-                            panic!("unterminated string literal")
+                            mark_error!(ErrorKind::UnterminatedStringLiteral)
                         }
                         Some(_) => {}
-                        None => {
-                            panic!("unterminated string literal")
-                        }
                     }
                 }
                 Tt::StrLitSgl(self.stream.str_from(start.pos))
@@ -1028,13 +1041,11 @@ impl<'f, 's> Lexer<'f, 's> {
                                             | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
                                             | Some('\u{2028}') // LINE SEPARATOR          <LS>
                                             | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                                            | None
                                             => {
-                                                panic!("unterminated regexp literal")
+                                                mark_error!(ErrorKind::UnterminatedRegExpLiteral)
                                             }
                                             Some(_) => {}
-                                            None => {
-                                                panic!("unterminated regexp literal")
-                                            }
                                         }
                                     }
                                 }
@@ -1042,13 +1053,11 @@ impl<'f, 's> Lexer<'f, 's> {
                                 | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
                                 | Some('\u{2028}') // LINE SEPARATOR          <LS>
                                 | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                                | None
                                 => {
-                                    panic!("unterminated regexp literal")
+                                    mark_error!(ErrorKind::UnterminatedRegExpLiteral)
                                 }
                                 Some(_) => {}
-                                None => {
-                                    panic!("unterminated regexp literal")
-                                }
                             }
                         }
                         let flags_start = self.stream.loc().pos;
@@ -1083,7 +1092,7 @@ impl<'f, 's> Lexer<'f, 's> {
                                     self.stream.skip_dec_digits();
                                 },
                                 _ => {
-                                    panic!("expected exponent")
+                                    mark_error!(ErrorKind::ExpectedExponent)
                                 },
                             ),
                             _ => {},
@@ -1117,7 +1126,7 @@ impl<'f, 's> Lexer<'f, 's> {
                                 Tt::NumLitDec(self.stream.str_from(start.pos))
                             },
                             _ => {
-                                panic!("expected exponent")
+                                mark_error!(ErrorKind::ExpectedExponent)
                             },
                         ),
                         _ => {
@@ -1131,7 +1140,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         Tt::NumLitDec(self.stream.str_from(start.pos))
                     },
                     _ => {
-                        panic!("expected exponent")
+                        mark_error!(ErrorKind::ExpectedExponent)
                     },
                 ),
                 _ => Tt::NumLitDec(self.stream.str_from(start.pos)),
@@ -1147,7 +1156,7 @@ impl<'f, 's> Lexer<'f, 's> {
                                     self.stream.skip_dec_digits();
                                 },
                                 _ => {
-                                    panic!("expected exponent")
+                                    mark_error!(ErrorKind::ExpectedExponent)
                                 },
                             ),
                             _ => {},
@@ -1158,7 +1167,7 @@ impl<'f, 's> Lexer<'f, 's> {
                             self.stream.skip_dec_digits();
                         },
                         _ => {
-                            panic!("expected exponent")
+                            mark_error!(ErrorKind::ExpectedExponent)
                         },
                     ),
                     _ => {},
@@ -3071,7 +3080,7 @@ impl<'f, 's> Lexer<'f, 's> {
             }
 
             _ => {
-                panic!("unexpected {} @ {}:{} (col {})", here, self.file_name, start.row + 1, start.col + 1)
+                mark_error!(ErrorKind::Unexpected(here))
             },
         };
         Tok {
