@@ -714,10 +714,12 @@ impl<'f, 's> Lexer<'f, 's> {
         mem::replace(&mut self.here, tok)
     }
 
+    #[inline]
     pub fn error(&self) -> Option<&Error> {
         self.error.as_ref()
     }
 
+    #[inline]
     pub fn take_error(&mut self) -> Option<Error> {
         self.error.take()
     }
