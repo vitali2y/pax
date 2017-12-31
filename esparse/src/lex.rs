@@ -513,6 +513,7 @@ pub struct Lexer<'f, 's> {
     here: Tok<'f, 's>,
     frame: LexFrame,
     stack: Vec<LexFrame>,
+    error: Option<Error>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -644,6 +645,7 @@ impl<'f, 's> Lexer<'f, 's> {
             here: Tok::new(Tt::Eof, Span::zero(file_name)),
             frame: LexFrame::Outer,
             stack: Vec::new(),
+            error: None,
         };
         lexer.advance();
         lexer
