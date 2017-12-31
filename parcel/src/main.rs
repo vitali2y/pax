@@ -479,13 +479,17 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
         let worker = worker.clone();
         thread::spawn(move || worker.run())
     }).collect();
+    // let children: Vec<_> = (0..thread_count).map(|n| {
+    //     let worker = worker.clone();
+    //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || worker.run()).unwrap()
+    // }).collect();
 
     loop {
         let work_done = match rx.recv() {
             Ok(work_done) => work_done,
             Err(_) => break,
         };
-        // println!("{:?}", work_done);
+        // eprintln!("{:?}", work_done);
         let work_done = match work_done {
             Err(error) => {
                 return Err(error)
