@@ -450,7 +450,7 @@ impl fmt::Display for ParseStrLitError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ErrorKind {
     // Expected(&'static str),
     ExpectedExponent,
