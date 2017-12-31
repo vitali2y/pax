@@ -724,7 +724,23 @@ impl<'f, 's> Lexer<'f, 's> {
 
     #[inline(always)]
     fn read_tok(&mut self) -> Tok<'f, 's> {
-        let (ws_before, nl_before) = self.stream.skip_ws();
+        let (ws_before, nl_before) = match self.stream.skip_ws() {
+            Some(x) => x,
+            None => {
+                let span = Span::empty(self.file_name, self.stream.loc());
+                self.error = Some(Error {
+                    kind: ErrorKind::UnterminatedMultilineComment,
+                    span: span.with_owned(),
+                });
+                self.stream.exhaust();
+                return Tok {
+                    tt: Tt::Err,
+                    span,
+                    ws_before: "",
+                    nl_before: false,
+                }
+            }
+        };
 
         let start = self.stream.loc();
         let here = match self.stream.advance() {
@@ -4445,7 +4461,7 @@ impl<'s> Stream<'s> {
     ///
     /// Returns <code>(<var>ws</var>, <var>nl</var>)</code> where <var>ws</var> is a slice covering the whitespace skipped and <var>nl</var> is true if and only if the whitespace contained a newline.
     #[inline]
-    pub fn skip_ws(&mut self) -> (&'s str, bool) {
+    pub fn skip_ws(&mut self) -> Option<(&'s str, bool)> {
         let start = self.loc;
         loop {
             match self.here {
@@ -4509,7 +4525,7 @@ impl<'s> Stream<'s> {
                                                     break
                                                 }
                                                 None => {
-                                                    panic!("unterminated multiline comment")
+                                                    return None
                                                 }
                                             }
                                         }
@@ -4518,7 +4534,7 @@ impl<'s> Stream<'s> {
                                         self.advance();
                                     }
                                     None => {
-                                        panic!("unterminated multiline comment")
+                                        return None
                                     }
                                 }
                             }
@@ -4542,7 +4558,7 @@ impl<'s> Stream<'s> {
                 None => break,
             }
         }
-        (self.str_from(start.pos), start.row < self.loc.row)
+        Some((self.str_from(start.pos), start.row < self.loc.row))
     }
 
     /// The bytewise position of the current character.
