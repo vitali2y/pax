@@ -2,5 +2,6 @@ target/
 **/*.rs.bk
 Cargo.lock
 private
+node_modules
 *.sublime-workspace
 .DS_Store
