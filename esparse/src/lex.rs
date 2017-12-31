@@ -730,6 +730,23 @@ impl<'f, 's> Lexer<'f, 's> {
         self.error.as_ref()
     }
 
+    /// Consumes and returns the most recent error, if it exists, resetting the lexer to an error-free state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate matches;
+    /// # extern crate esparse;
+    /// use esparse::lex::Lexer;
+    /// # fn main() {
+    ///
+    /// let mut lexer = Lexer::new_unnamed("}");
+    /// lexer.advance();
+    /// println!("The error is: {:?}", lexer.take_error().unwrap());
+    /// assert_matches!(lexer.error(), None);
+    /// # }
+    /// ```
     #[inline]
     pub fn take_error(&mut self) -> Option<Error> {
         self.error.take()
