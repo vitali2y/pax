@@ -11,7 +11,7 @@ extern crate base64;
 #[macro_use]
 extern crate matches;
 
-use std::{env, process, io, fs, thread, time, iter};
+use std::{env, process, io, fs, thread, time, iter, fmt};
 use std::io::prelude::*;
 use std::fmt::Write;
 use std::path::{self, PathBuf, Path, Component};
@@ -797,15 +797,15 @@ fn run() -> Result<(), CliError> {
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
 const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-fn print_usage() {
-    println!("\
+fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "\
 Usage: {0} [options] <input> [output]
        {0} [-h | --help]
-", APP_NAME);
+", APP_NAME)
 }
 
-fn print_help() {
-        println!("\
+fn write_help(f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\
 {0} v{1}
 
 Usage:
@@ -854,7 +854,7 @@ Options:
 
     -h, --help
         Print this message.
-", APP_NAME, APP_VERSION);
+", APP_NAME, APP_VERSION)
 }
 
 #[derive(Debug)]
@@ -876,6 +876,7 @@ pub enum CliError {
     Json(json::Error),
     Notify(notify::Error),
     Es6(es6::Error),
+    Lex(lex::Error),
     ParseStrLit(lex::ParseStrLitError),
     Box(Box<Any + Send + 'static>),
 }
@@ -899,6 +900,11 @@ impl From<es6::Error> for CliError {
         CliError::Es6(inner)
     }
 }
+impl From<lex::Error> for CliError {
+    fn from(inner: lex::Error) -> CliError {
+        CliError::Lex(inner)
+    }
+}
 impl From<lex::ParseStrLitError> for CliError {
     fn from(inner: lex::ParseStrLitError) -> CliError {
         CliError::ParseStrLit(inner)
@@ -910,110 +916,98 @@ impl From<Box<Any + Send + 'static>> for CliError {
     }
 }
 
+impl fmt::Display for CliError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CliError::Help => {
+                write_help(f)
+            }
+            CliError::MissingFileName => {
+                write_usage(f)
+            }
+            CliError::DuplicateOption(ref opt) => {
+                write!(f, "option {} specified more than once", opt)
+            }
+            CliError::MissingOptionValue(ref opt) => {
+                write!(f, "missing value for option {}", opt)
+            }
+            CliError::UnknownOption(ref opt) => {
+                write!(f, "unknown option {}", opt)
+            }
+            CliError::UnexpectedArg(ref arg) => {
+                write!(f, "unexpected argument {}", arg)
+            }
+            CliError::BadUsage(ref arg) => {
+                write!(f, "{}", arg)
+            }
+
+            CliError::RequireRoot { ref context, ref path } => {
+                match *context {
+                    None => {
+                        write!(f,
+                            "main module is root path {}",
+                            path.display(),
+                        )
+                    }
+                    Some(ref context) => {
+                        write!(f,
+                            "require of root path {} in {}",
+                            path.display(),
+                            context.display(),
+                        )
+                    }
+                }
+            }
+            CliError::EmptyModuleName { ref context } => {
+                write!(f, "require('') in {}", context.display())
+            }
+            CliError::ModuleNotFound { ref context, ref name } => {
+                write!(f,
+                    "module '{}' not found in {}",
+                    name,
+                    context.display(),
+                )
+            }
+            CliError::MainNotFound { ref name } => {
+                write!(f, "main module '{}' not found", name)
+            }
+
+            CliError::Io(ref inner) => {
+                write!(f, "{}", inner)
+            }
+            CliError::Json(ref inner) => {
+                write!(f, "{}", inner)
+            }
+            CliError::Notify(ref inner) => {
+                write!(f, "{}", inner)
+            }
+            CliError::Es6(ref inner) => {
+                write!(f, "{}", inner)
+            }
+            CliError::Lex(ref inner) => {
+                write!(f, "{}", inner)
+            }
+            CliError::ParseStrLit(ref inner) => {
+                write!(f, "{}", inner)
+            }
+            CliError::Box(ref inner) => {
+                write!(f, "{:?}", inner)
+            }
+        }
+    }
+}
+
 fn main() {
     process::exit(match run() {
         Ok(_) => 0,
         Err(kind) => {
             match kind {
-                CliError::Help => {
-                    print_help();
-                }
+                CliError::Help |
                 CliError::MissingFileName => {
-                    print_usage();
+                    println!("{}", kind);
                 }
-                CliError::DuplicateOption(opt) => {
-                    println!(
-                        "{}: option {} specified more than once",
-                        APP_NAME,
-                        opt,
-                    );
-                }
-                CliError::MissingOptionValue(opt) => {
-                    println!(
-                        "{}: missing value for option {}",
-                        APP_NAME,
-                        opt,
-                    );
-                }
-                CliError::UnknownOption(opt) => {
-                    println!(
-                        "{}: unknown option {}",
-                        APP_NAME,
-                        opt,
-                    );
-                }
-                CliError::UnexpectedArg(arg) => {
-                    println!(
-                        "{}: unexpected argument {}",
-                        APP_NAME,
-                        arg,
-                    );
-                }
-                CliError::BadUsage(arg) => {
-                    println!(
-                        "{}: {}", APP_NAME, arg
-                    );
-                }
-
-                CliError::RequireRoot { context, path } => {
-                    match context {
-                        None => {
-                            println!(
-                                "{}: main module is root path {}",
-                                APP_NAME,
-                                path.display(),
-                            );
-                        }
-                        Some(context) => {
-                            println!(
-                                "{}: require of root path {} in {}",
-                                APP_NAME,
-                                path.display(),
-                                context.display(),
-                            );
-                        }
-                    }
-                }
-                CliError::EmptyModuleName { context } => {
-                    println!(
-                        "{}: require('') in {}",
-                        APP_NAME,
-                        context.display(),
-                    );
-                }
-                CliError::ModuleNotFound { context, name } => {
-                    println!(
-                        "{}: module '{}' not found in {}",
-                        APP_NAME,
-                        name,
-                        context.display(),
-                    );
-                }
-                CliError::MainNotFound { name } => {
-                    println!(
-                        "{}: main module '{}' not found",
-                        APP_NAME,
-                        name,
-                    );
-                }
-
-                CliError::Io(inner) => {
-                    println!("{}: {}", APP_NAME, inner);
-                }
-                CliError::Json(inner) => {
-                    println!("{}: {}", APP_NAME, inner);
-                }
-                CliError::Notify(inner) => {
-                    println!("{}: {}", APP_NAME, inner);
-                }
-                CliError::Es6(inner) => {
-                    println!("{}: {}", APP_NAME, inner);
-                }
-                CliError::ParseStrLit(inner) => {
-                    println!("{}: {}", APP_NAME, inner);
-                }
-                CliError::Box(inner) => {
-                    println!("{}: {:?}", APP_NAME, inner);
+                _ => {
+                    println!("{}: {}", APP_NAME, kind);
                 }
             }
             1
