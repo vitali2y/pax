@@ -763,31 +763,36 @@ fn run() -> Result<(), CliError> {
             }
 
             let start_inst = time::Instant::now();
-            let new_modules = bundle(&entry_point, input_options, &output, &map_output)?;
+            match bundle(&entry_point, input_options, &output, &map_output) {
+                Ok(new_modules) => {
+                    let elapsed = start_inst.elapsed();
+                    let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
+                    eprintln!("generate {output} in {ms} ms",
+                        output = output,
+                        ms = ms);
 
-            let elapsed = start_inst.elapsed();
-            let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
-            eprintln!("generate {output} in {ms} ms",
-                output = output,
-                ms = ms);
-
-            {
-                let mut to_unwatch = modules.keys().collect::<HashSet<_>>();
-                let mut to_watch = new_modules.keys().collect::<HashSet<_>>();
-                for path in modules.keys() {
-                    to_watch.remove(&path);
+                    {
+                        let mut to_unwatch = modules.keys().collect::<HashSet<_>>();
+                        let mut to_watch = new_modules.keys().collect::<HashSet<_>>();
+                        for path in modules.keys() {
+                            to_watch.remove(&path);
+                        }
+                        for path in new_modules.keys() {
+                            to_unwatch.remove(&path);
+                        }
+                        for path in to_watch {
+                            watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+                        }
+                        for path in to_unwatch {
+                            watcher.unwatch(path)?;
+                        }
+                    }
+                    modules = new_modules;
                 }
-                for path in new_modules.keys() {
-                    to_unwatch.remove(&path);
-                }
-                for path in to_watch {
-                    watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
-                }
-                for path in to_unwatch {
-                    watcher.unwatch(path)?;
+                Err(kind) => {
+                    eprintln!("error: {}", kind);
                 }
             }
-            modules = new_modules;
         }
     } else {
         bundle(&entry_point, input_options, &output, &map_output).map(|_| ())
