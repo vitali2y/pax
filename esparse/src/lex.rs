@@ -4705,7 +4705,7 @@ mod test {
     extern crate test;
 
     use super::*;
-    use std::{fs, panic};
+    use std::fs;
     use std::io::prelude::*;
     use std::borrow::Cow;
 
@@ -4718,9 +4718,9 @@ mod test {
     }
 
     fn lex_test_invalid(source: &str) {
-        panic::catch_unwind(|| {
-            for _ in Lexer::new_unnamed(source) {}
-        }).unwrap_err();
+        let mut lexer = Lexer::new_unnamed(source);
+        for _ in &mut lexer {}
+        assert_matches!(lexer.error(), Some(_));
     }
 
     #[test]
