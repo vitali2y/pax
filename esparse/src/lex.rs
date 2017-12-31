@@ -714,6 +714,14 @@ impl<'f, 's> Lexer<'f, 's> {
         mem::replace(&mut self.here, tok)
     }
 
+    pub fn error(&self) -> Option<&Error> {
+        self.error.as_ref()
+    }
+
+    pub fn take_error(&mut self) -> Option<Error> {
+        self.error.take()
+    }
+
     #[inline(always)]
     fn read_tok(&mut self) -> Tok<'f, 's> {
         let (ws_before, nl_before) = self.stream.skip_ws();
