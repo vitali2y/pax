@@ -14,12 +14,11 @@
 //! }
 //! ```
 
-use std::{char, mem, fmt};
-use std::error::Error;
+use std::{char, mem, fmt, error};
 use std::borrow::Cow;
 use memchr;
 
-use ast::{Span, Loc};
+use ast::{Span, SpanT, Loc};
 
 /// A token (an atomic parsing unit).
 ///
@@ -429,7 +428,7 @@ pub enum ParseStrLitError {
     NotHex4,
 }
 
-impl Error for ParseStrLitError {
+impl error::Error for ParseStrLitError {
     fn description(&self) -> &str {
         match *self {
             ParseStrLitError::ExpectedEscape => "expected escape sequence, but got end of string",
@@ -446,7 +445,63 @@ impl Error for ParseStrLitError {
 
 impl fmt::Display for ParseStrLitError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use std::error::Error;
         f.write_str(self.description())
+    }
+}
+
+#[derive(Debug)]
+pub enum ErrorKind {
+    // Expected(&'static str),
+    ExpectedExponent,
+    UnterminatedTemplateLiteral,
+    UnterminatedStringLiteral,
+    UnterminatedRegExpLiteral,
+    UnterminatedMultilineComment,
+    UnmatchedRbrace,
+    Unexpected(char),
+}
+
+#[derive(Debug)]
+pub struct Error {
+    pub kind: ErrorKind,
+    pub span: SpanT<String>,
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            // ErrorKind::Expected(s) => {
+            //     write!(f, "expected {}", s)
+            // }
+            ErrorKind::Unexpected(c) => {
+                write!(f, "unexpected {}", c)
+            }
+            ErrorKind::ExpectedExponent => {
+                write!(f, "expected exponent in numeric literal")
+            }
+            ErrorKind::UnterminatedTemplateLiteral => {
+                write!(f, "unterminated template literal")
+            }
+            ErrorKind::UnterminatedStringLiteral => {
+                write!(f, "unterminated string literal")
+            }
+            ErrorKind::UnterminatedRegExpLiteral => {
+                write!(f, "unterminated regular expression literal")
+            }
+            ErrorKind::UnterminatedMultilineComment => {
+                write!(f, "unterminated multiline comment")
+            }
+            ErrorKind::UnmatchedRbrace => {
+                write!(f, "unmatched '}}'")
+            }
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} at {}", self.kind, self.span)
     }
 }
 
