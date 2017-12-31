@@ -3132,6 +3132,10 @@ impl<'s> Stream<'s> {
         self.here.map_or(false, |cc| c == cc)
     }
 
+    pub fn exhaust(&mut self) {
+        while let Some(_) = self.advance() {}
+    }
+
     /// Advances to the next character if and only if the current character is `c`.
     #[inline]
     pub fn eat(&mut self, c: char) -> bool {
