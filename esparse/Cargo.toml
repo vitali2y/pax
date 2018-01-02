@@ -13,6 +13,7 @@ categories = ["parser-implementations"]
 
 exclude = [
   "private/*",
+  "data/*",
 ]
 
 [dependencies]
