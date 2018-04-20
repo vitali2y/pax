@@ -123,6 +123,9 @@ Options:
 
     -h, --help
         Print this message.
+
+    -v, --version
+        Print version information.
 ```
 
 # Is it fast?
