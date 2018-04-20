@@ -24,7 +24,7 @@
     this.exports = {}
   }
   Parcel.makeRequire = self => {
-    let parts
+    // let parts
 
     const require = m => require._module(m).exports
     require._deps = {}
