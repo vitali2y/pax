@@ -42,7 +42,11 @@
       //   const filename = require.resolve(m)
       //   fn = filename !== null ? Parcel.files[filename] : null
       // }
-      if (fn == null) return Parcel.baseRequire(m)
+      if (fn == null) {
+        const module = {exports: Parcel.baseRequire(m)}
+        require._deps[m] = {module: module}
+        return module
+      }
       if (fn.module) return fn.module
       const module = new Parcel.Module(fn.filename, self)
       fn.module = module
