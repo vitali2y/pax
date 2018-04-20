@@ -469,6 +469,8 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
         queue: Arc::new(SegQueue::new()),
     };
 
+    // TODO: context.require('…')
+
     let mut modules = HashMap::<PathBuf, ModuleState>::new();
 
     worker.add_work(Work::Include { module: entry_point.to_owned() });
