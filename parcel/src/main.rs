@@ -664,6 +664,7 @@ fn run() -> Result<(), CliError> {
         for arg in expand_arg(arg) {
             match &*arg {
                 "-h" | "--help" => return Err(CliError::Help),
+                "-v" | "--version" => return Err(CliError::Version),
                 "-w" | "--watch" => watch = true,
                 "-I" | "--map-inline" => map_inline = true,
                 "-M" | "--no-map" => no_map = true,
@@ -807,15 +808,18 @@ const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "\
 Usage: {0} [options] <input> [output]
-       {0} [-h | --help]
-", APP_NAME)
+       {0} [-h | --help | -v | --version]", APP_NAME)
+}
+
+fn write_version(f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{0} v{1}", APP_NAME, APP_VERSION)
 }
 
 fn write_help(f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{0} v{1}\n", APP_NAME, APP_VERSION)?;
-    writeln!(f)?;
+    write_version(f)?;
+    write!(f, "\n\n")?;
     write_usage(f)?;
-    writeln!(f)?;
+    write!(f, "\n\n")?;
     write!(f, "\
 Options:
     -i, --input <input>
@@ -859,12 +863,16 @@ Options:
 
     -h, --help
         Print this message.
+
+    -v, --version
+        Print version information.
 ")
 }
 
 #[derive(Debug)]
 pub enum CliError {
     Help,
+    Version,
     MissingFileName,
     DuplicateOption(String),
     MissingOptionValue(String),
@@ -926,6 +934,9 @@ impl fmt::Display for CliError {
         match *self {
             CliError::Help => {
                 write_help(f)
+            }
+            CliError::Version => {
+                write_version(f)
             }
             CliError::MissingFileName => {
                 write_usage(f)
@@ -1008,6 +1019,7 @@ fn main() {
         Err(kind) => {
             match kind {
                 CliError::Help |
+                CliError::Version |
                 CliError::MissingFileName => {
                     println!("{}", kind);
                 }
