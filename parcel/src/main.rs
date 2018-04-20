@@ -812,13 +812,11 @@ Usage: {0} [options] <input> [output]
 }
 
 fn write_help(f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\
-{0} v{1}
-
-Usage:
-    {0} [options] <input> [output]
-    {0} [-h | --help]
-
+    write!(f, "{0} v{1}\n", APP_NAME, APP_VERSION)?;
+    writeln!(f)?;
+    write_usage(f)?;
+    writeln!(f)?;
+    write!(f, "\
 Options:
     -i, --input <input>
         Use <input> as the main module.
@@ -861,7 +859,7 @@ Options:
 
     -h, --help
         Print this message.
-", APP_NAME, APP_VERSION)
+")
 }
 
 #[derive(Debug)]
