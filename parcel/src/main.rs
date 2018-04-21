@@ -470,6 +470,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     };
 
     // TODO: context.require('…')
+    // TODO: watch for missing files on error?
 
     let mut modules = HashMap::<PathBuf, ModuleState>::new();
 
