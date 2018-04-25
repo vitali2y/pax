@@ -75,7 +75,7 @@ If you need your modules to be in `.js` files for some reason, use `-E` (`--es-s
 
 ```
 > parcel --help
-parcel v0.1.1
+parcel v0.1.2
 
 Usage:
     parcel [options] <input> [output]
