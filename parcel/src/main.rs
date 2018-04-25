@@ -794,7 +794,7 @@ fn run() -> Result<(), CliError> {
                     modules = new_modules;
                 }
                 Err(kind) => {
-                    eprintln!("error: {}", kind);
+                    eprintln!("\x07error: {}", kind);
                 }
             }
         }
