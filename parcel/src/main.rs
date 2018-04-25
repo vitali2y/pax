@@ -659,6 +659,7 @@ fn run() -> Result<(), CliError> {
     let mut map_inline = false;
     let mut no_map = false;
     let mut watch = false;
+    let mut quiet_watch = false;
 
     let mut iter = env::args().skip(1);
     while let Some(arg) = iter.next() {
@@ -667,6 +668,10 @@ fn run() -> Result<(), CliError> {
                 "-h" | "--help" => return Err(CliError::Help),
                 "-v" | "--version" => return Err(CliError::Version),
                 "-w" | "--watch" => watch = true,
+                "-W" | "--quiet-watch" => {
+                    watch = true;
+                    quiet_watch = true;
+                },
                 "-I" | "--map-inline" => map_inline = true,
                 "-M" | "--no-map" => no_map = true,
                 "-e" | "--es-syntax" => es6_syntax = true,
@@ -794,7 +799,7 @@ fn run() -> Result<(), CliError> {
                     modules = new_modules;
                 }
                 Err(kind) => {
-                    eprintln!("\x07error: {}", kind);
+                    eprintln!("{}error: {}", if quiet_watch { "" } else { "\x07" }, kind);
                 }
             }
         }
@@ -841,6 +846,10 @@ Options:
 
     -w, --watch
         Watch for changes to <input> and its dependencies.
+
+    -W, --quiet-watch
+        Don't emit a bell character for errors that occur while watching.
+        Implies --watch.
 
     -e, --es-syntax
         Support .mjs files with ECMAScript module syntax:

@@ -101,6 +101,10 @@ Options:
     -w, --watch
         Watch for changes to <input> and its dependencies.
 
+    -W, --quiet-watch
+        Don't emit a bell character for errors that occur while watching.
+        Implies --watch.
+
     -e, --es-syntax
         Support .mjs files with ECMAScript module syntax:
 
