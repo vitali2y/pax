@@ -10,7 +10,7 @@ macro_rules! expected {
     ($lex:expr, $msg:expr) => {{
         return Err(Error {
             kind: ErrorKind::Expected($msg),
-            span: $lex.here().span.with_owned(),
+            span: $lex.recover_span($lex.here().span).with_owned(),
         })
     }};
 }
@@ -24,7 +24,7 @@ pub struct Error {
     /// The kind of error.
     pub kind: ErrorKind,
     /// The source code region in which the error appeared.
-    pub span: ast::SpanT<String>,
+    pub span: ast::SpanT<String, ast::Loc>,
 }
 
 /// The specific kind of error that occurred.

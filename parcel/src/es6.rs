@@ -11,7 +11,7 @@ macro_rules! expected {
     ($lex:expr, $msg:expr) => {{
         return Err(Error {
             kind: ErrorKind::Expected($msg),
-            span: $lex.here().span.with_owned(),
+            span: $lex.recover_span($lex.here().span).with_owned(),
         })
     }};
 }
@@ -106,7 +106,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct Error {
     pub kind: ErrorKind,
-    pub span: esparse::ast::SpanT<String>,
+    pub span: esparse::ast::SpanT<String, esparse::ast::Loc>,
 }
 
 #[derive(Debug)]
@@ -166,7 +166,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                 imports.push(import);
             },
             Tt::Id("require") if allow_require => {
-                let start_pos = tok.span.start.pos;
+                let start_pos = tok.span.start;
                 eat!(lex,
                     Tt::Lparen => eat!(lex,
                         Tt::StrLitSgl(dep_source) |
@@ -176,7 +176,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                                     Ok(dep) => dep,
                                     Err(error) => return Err(Error {
                                         kind: ErrorKind::ParseStrLitError(error),
-                                        span: tok.span.with_owned(),
+                                        span: lex.recover_span(tok.span).with_owned(),
                                     }),
                                 });
                             },
@@ -188,7 +188,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                 );
 
                 let here = lex.here();
-                let end_pos = here.span.start.pos - here.ws_before.len();
+                let end_pos = here.span.start - here.ws_before.len();
                 source.push_str(&lex.input()[start_pos..end_pos]);
             },
             Tt::Eof => break,
@@ -330,7 +330,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                         Ok(module) => module,
                         Err(error) => return Err(Error {
                             kind: ErrorKind::ParseStrLitError(error),
-                            span: tok.span.with_owned(),
+                            span: lex.recover_span(tok.span).with_owned(),
                         }),
                     }))
                 },
@@ -381,7 +381,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                             Ok(module) => module,
                             Err(error) => return Err(Error {
                                 kind: ErrorKind::ParseStrLitError(error),
-                                span: tok.span.with_owned(),
+                                span: lex.recover_span(tok.span).with_owned(),
                             }),
                         }))
                     },
@@ -395,7 +395,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
         Tt::Var |
         Tt::Const |
         Tt::Id("let") => {
-            let start_pos = tok.span.start.pos;
+            let start_pos = tok.span.start;
             let mut exports = Vec::new();
             loop {
                 eat!(lex,
@@ -420,13 +420,13 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
             }
 
             let here = lex.here();
-            let end_pos = here.span.start.pos - here.ws_before.len();
+            let end_pos = here.span.start - here.ws_before.len();
             source.push_str(&lex.input()[start_pos..end_pos]);
 
             Ok(Export::Named(exports))
         },
         Tt::Function => {
-            let start_pos = tok.span.start.pos;
+            let start_pos = tok.span.start;
 
             eat!(lex,
                 Tt::Star => {},
@@ -446,13 +446,13 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
             // );
 
             let here = lex.here();
-            let end_pos = here.span.start.pos - here.ws_before.len();
+            let end_pos = here.span.start - here.ws_before.len();
             source.push_str(&lex.input()[start_pos..end_pos]);
 
             Ok(Export::Named(vec![ExportSpec::same(name)]))
         },
         Tt::Class => {
-            let start_pos = tok.span.start.pos;
+            let start_pos = tok.span.start;
 
             let name = eat!(lex,
                 Tt::Id(name) => name,
@@ -468,7 +468,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
             // );
 
             let here = lex.here();
-            let end_pos = here.span.start.pos - here.ws_before.len();
+            let end_pos = here.span.start - here.ws_before.len();
             source.push_str(&lex.input()[start_pos..end_pos]);
 
             Ok(Export::Named(vec![ExportSpec::same(name)]))
@@ -543,7 +543,7 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                 Ok(module) => module,
                 Err(error) => return Err(Error {
                     kind: ErrorKind::ParseStrLitError(error),
-                    span: tok.span.with_owned(),
+                    span: lex.recover_span(tok.span).with_owned(),
                 }),
             }))
         },
@@ -569,7 +569,7 @@ fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                     Ok(module) => module,
                     Err(error) => return Err(Error {
                         kind: ErrorKind::ParseStrLitError(error),
-                        span: tok.span.with_owned(),
+                        span: lex.recover_span(tok.span).with_owned(),
                     }),
                 },
                 default_bind,

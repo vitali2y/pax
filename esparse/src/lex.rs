@@ -28,7 +28,7 @@ pub struct Tok<'f, 's> {
     /// The token type.
     pub tt: Tt<'s>,
     /// The source region this token covers.
-    pub span: Span<'f>,
+    pub span: Span<'f, usize>,
     /// Any whitespace and comments that appeared directly before this token.
     pub ws_before: &'s str,
     /// `true` if [`ws_before`](#structfield.ws_before) contains a line terminator.
@@ -37,7 +37,7 @@ pub struct Tok<'f, 's> {
 
 impl<'f, 's> Tok<'f, 's> {
     /// Creates a new `Token` with no preceding whitespace.
-    pub fn new(tt: Tt<'s>, span: Span<'f>) -> Self {
+    pub fn new(tt: Tt<'s>, span: Span<'f, usize>) -> Self {
         Tok {
             tt,
             span,
@@ -476,7 +476,7 @@ pub struct Error {
     /// The kind of error.
     pub kind: ErrorKind,
     /// The source code region in which the error appeared.
-    pub span: SpanT<String>,
+    pub span: SpanT<String, Loc>,
 }
 
 impl fmt::Display for ErrorKind {
@@ -520,7 +520,7 @@ impl fmt::Display for Error {
 #[derive(Debug)]
 pub struct Lexer<'f, 's> {
     file_name: &'f str,
-    stream: Stream<'s>,
+    stream: PosStream<'s>,
     here: Tok<'f, 's>,
     frame: LexFrame,
     stack: Vec<LexFrame>,
@@ -763,15 +763,49 @@ impl<'f, 's> Lexer<'f, 's> {
         self.error.take()
     }
 
+    // fn stream_loc(&self) -> Loc {
+    //     self.recover_loc(self.stream.pos())
+    // }
+
+    /// Recovers a [`Loc`](../ast/type.Loc.html) from a byte offset by scanning the preceding input.
+    pub fn recover_loc(&self, pos: usize) -> Loc {
+        self.recover_locs(vec![pos])[0]
+    }
+
+    /// Recovers a [`Span`](../ast/type.Span.html) from a byte-offset `Span` by scanning the preceding input.
+    pub fn recover_span(&self, span: Span<'f, usize>) -> Span<'f, Loc> {
+        let locs = self.recover_locs(vec![span.start, span.end]);
+        Span::new(span.file_name, locs[0], locs[1])
+    }
+
+    /// Recovers an empty [`Span`](../ast/type.Span.html) from a byte offset by scanning the preceding input.
+    pub fn recover_empty_span(&self, pos: usize) -> Span<'f, Loc> {
+        Span::empty(self.file_name, self.recover_loc(pos))
+    }
+
+    /// Recovers a sequence of [`Loc`](../ast/type.Loc.html)s from a sequence of byte offsets by scanning the preceding input.
+    #[cold]
+    fn recover_locs<I: IntoIterator<Item = usize>>(&self, iter: I) -> Vec<Loc> {
+        let mut s = LocStream::new(self.stream.input());
+        let mut locs = Vec::new();
+        for pos in iter.into_iter() {
+            while s.pos() < pos {
+                s.advance();
+            }
+            locs.push(s.loc());
+        }
+        locs
+    }
+
     #[inline(always)]
     fn read_tok(&mut self) -> Tok<'f, 's> {
         let (ws_before, nl_before) = match self.stream.skip_ws() {
             Some(x) => x,
             None => {
-                let span = Span::empty(self.file_name, self.stream.loc());
+                let span = Span::empty(self.file_name, self.stream.pos);
                 self.error = Some(Error {
                     kind: ErrorKind::UnterminatedMultilineComment,
-                    span: span.with_owned(),
+                    span: self.recover_empty_span(span.start).with_owned(),
                 });
                 self.stream.exhaust();
                 return Tok {
@@ -783,7 +817,7 @@ impl<'f, 's> Lexer<'f, 's> {
             }
         };
 
-        let start = self.stream.loc();
+        let start = self.stream.pos();
         let here = match self.stream.advance() {
             Some(c) => c,
             None => {
@@ -798,10 +832,10 @@ impl<'f, 's> Lexer<'f, 's> {
 
         macro_rules! mark_error {
             ($kind:expr) => {{
-                let span = Span::new(self.file_name, start, self.stream.loc());
+                let span = Span::new(self.file_name, start, self.stream.pos());
                 self.error = Some(Error {
                     kind: $kind,
-                    span: span.with_owned(),
+                    span: self.recover_span(span).with_owned(),
                 });
                 self.stream.exhaust();
                 return Tok {
@@ -924,13 +958,13 @@ impl<'f, 's> Lexer<'f, 's> {
                                         Some(f) => f,
                                         None => unreachable!(),
                                     };
-                                    result = Tt::TemplateEnd(self.stream.str_from(start.pos));
+                                    result = Tt::TemplateEnd(self.stream.str_from(start));
                                     break
                                 }
                                 Some('$') => {
                                     // TODO subopt
                                     if self.stream.eat('{') {
-                                        result = Tt::TemplateMiddle(self.stream.str_from(start.pos));
+                                        result = Tt::TemplateMiddle(self.stream.str_from(start));
                                         break
                                     }
                                 }
@@ -968,14 +1002,14 @@ impl<'f, 's> Lexer<'f, 's> {
                             }
                         }
                         Some('`') => {
-                            result = Tt::TemplateNoSub(self.stream.str_from(start.pos));
+                            result = Tt::TemplateNoSub(self.stream.str_from(start));
                             break
                         }
                         Some('$') => {
                             // TODO subopt
                             if self.stream.eat('{') {
                                 self.stack.push(mem::replace(&mut self.frame, LexFrame::Template));
-                                result = Tt::TemplateStart(self.stream.str_from(start.pos));
+                                result = Tt::TemplateStart(self.stream.str_from(start));
                                 break
                             }
                         }
@@ -1014,7 +1048,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         Some(_) => {}
                     }
                 }
-                Tt::StrLitDbl(self.stream.str_from(start.pos))
+                Tt::StrLitDbl(self.stream.str_from(start))
             }
             '\'' => {
                 loop {
@@ -1042,7 +1076,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         Some(_) => {}
                     }
                 }
-                Tt::StrLitSgl(self.stream.str_from(start.pos))
+                Tt::StrLitSgl(self.stream.str_from(start))
             }
 
             '/' => {
@@ -1117,10 +1151,10 @@ impl<'f, 's> Lexer<'f, 's> {
                                 Some(_) => {}
                             }
                         }
-                        let flags_start = self.stream.loc().pos;
+                        let flags_start = self.stream.pos();
                         self.stream.skip_id_continue_chars();
 
-                        let source = self.stream.str_from(start.pos);
+                        let source = self.stream.str_from(start);
                         let flags = self.stream.str_from(flags_start);
                         Tt::RegExpLit(source, flags)
                     }
@@ -1154,7 +1188,7 @@ impl<'f, 's> Lexer<'f, 's> {
                             ),
                             _ => {},
                         );
-                        Tt::NumLitDec(self.stream.str_from(start.pos))
+                        Tt::NumLitDec(self.stream.str_from(start))
                     }
                     Some(_) | None => {
                         Tt::Dot
@@ -1164,15 +1198,15 @@ impl<'f, 's> Lexer<'f, 's> {
             '0' => eat_s!(self.stream,
                 'b' | 'B' => {
                     self.stream.skip_bin_digits();
-                    Tt::NumLitBin(self.stream.str_from(start.pos))
+                    Tt::NumLitBin(self.stream.str_from(start))
                 },
                 'o' | 'O' => {
                     self.stream.skip_oct_digits();
-                    Tt::NumLitOct(self.stream.str_from(start.pos))
+                    Tt::NumLitOct(self.stream.str_from(start))
                 },
                 'x' | 'X' => {
                     self.stream.skip_hex_digits();
-                    Tt::NumLitHex(self.stream.str_from(start.pos))
+                    Tt::NumLitHex(self.stream.str_from(start))
                 },
                 '.' => {
                     self.stream.skip_dec_digits();
@@ -1180,27 +1214,27 @@ impl<'f, 's> Lexer<'f, 's> {
                         'e' | 'E' => eat_s!(self.stream,
                             '-' | '+' | '0'...'9' => {
                                 self.stream.skip_dec_digits();
-                                Tt::NumLitDec(self.stream.str_from(start.pos))
+                                Tt::NumLitDec(self.stream.str_from(start))
                             },
                             _ => {
                                 mark_error!(ErrorKind::ExpectedExponent)
                             },
                         ),
                         _ => {
-                            Tt::NumLitDec(self.stream.str_from(start.pos))
+                            Tt::NumLitDec(self.stream.str_from(start))
                         },
                     )
                 },
                 'e' | 'E' => eat_s!(self.stream,
                     '-' | '+' | '0'...'9' => {
                         self.stream.skip_dec_digits();
-                        Tt::NumLitDec(self.stream.str_from(start.pos))
+                        Tt::NumLitDec(self.stream.str_from(start))
                     },
                     _ => {
                         mark_error!(ErrorKind::ExpectedExponent)
                     },
                 ),
-                _ => Tt::NumLitDec(self.stream.str_from(start.pos)),
+                _ => Tt::NumLitDec(self.stream.str_from(start)),
             ),
             '1'...'9' => {
                 self.stream.skip_dec_digits();
@@ -1229,7 +1263,7 @@ impl<'f, 's> Lexer<'f, 's> {
                     ),
                     _ => {},
                 );
-                Tt::NumLitDec(self.stream.str_from(start.pos))
+                Tt::NumLitDec(self.stream.str_from(start))
             }
 
             // TODO '\\' |
@@ -3093,7 +3127,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         },
                     }
                 }
-                let id = self.stream.str_from(start.pos);
+                let id = self.stream.str_from(start);
                 match id {
                     "null" => Tt::Null,
                     "true" => Tt::True,
@@ -3142,7 +3176,7 @@ impl<'f, 's> Lexer<'f, 's> {
         };
         Tok {
             tt,
-            span: Span::new(self.file_name, start, self.stream.loc()),
+            span: Span::new(self.file_name, start, self.stream.pos()),
             ws_before,
             nl_before,
         }
@@ -3161,52 +3195,61 @@ impl<'f, 's> Iterator for Lexer<'f, 's> {
     }
 }
 
-/// Generic stream structure for source code.
+/// Trait for source code streams.
 ///
-/// A `Stream` advances over its input one character at a time, tracking line and column information and providing two characters of lookahead.
-#[derive(Debug)]
-pub struct Stream<'s> {
-    input: &'s str,
-
-    loc: Loc,
-    here: Option<char>,
-
-    next_pos: usize,
-    next_width: usize,
-    next: Option<char>,
-}
-
-impl<'s> Stream<'s> {
+/// A `Stream` advances over its input one character at a time, providing two characters of lookahead. It has two built-in implementations:
+///
+/// * [`PosStream`](type.PosStream.html) provides only byte offset information and is slightly faster.
+/// * [`LocStream`](type.LocStream.html) provides row and column information and is slightly slower.
+pub trait Stream<'s> {
     /// Creates a new `Stream` on the given input.
-    pub fn new(input: &'s str) -> Self {
-        let mut stream = Stream {
-            input,
-            loc: Default::default(),
-            here: None,
-            next_pos: 0,
-            next_width: 0,
-            next: None,
-        };
-        stream.advance();
-        stream.advance();
-        stream
-    }
+    fn new(input: &'s str) -> Self;
+
+    // TODO pub fn advance_by(&mut self, n: usize) -> &'s str {}
+
+    /// Advances the stream by one character, returning the character advanced past or `None` if the stream was already at the end of its input.
+    fn advance(&mut self) -> Option<char>;
+
+    /// The current character, or `None` if the stream has reached the end of its input.
+    fn here(&self) -> Option<char>;
+
+    /// The next character, or `None` if the stream has reached the end of its input.
+    fn next(&self) -> Option<char>;
+
+    /// The bytewise position of the current character.
+    fn pos(&self) -> usize;
+
+    /// The entire input source code.
+    fn input(&self) -> &'s str;
 
     /// `true` if and only if the current character is `c`.
     #[inline]
-    pub fn is(&self, c: char) -> bool {
-        self.here.map_or(false, |cc| c == cc)
+    fn is(&self, c: char) -> bool {
+        self.here().map_or(false, |cc| c == cc)
+    }
+
+    /// A slice of the input source code from the byte at `start` up to, but not including the first byte of the current character.
+    #[inline]
+    fn str_from(&self, start: usize) -> &'s str {
+        &self.input()[start..self.pos()]
+    }
+
+    /// A slice of the input source code from the byte at `start` up to, but not including the byte at `end`.
+    #[inline]
+    fn str_range(&self, start: usize, end: usize) -> &'s str {
+        &self.input()[start..end]
     }
 
     /// Advances the stream to the end of the file.
-    pub fn exhaust(&mut self) {
+    #[inline]
+    fn exhaust(&mut self) {
         while let Some(_) = self.advance() {}
     }
 
     /// Advances to the next character if and only if the current character is `c`.
     #[inline]
-    pub fn eat(&mut self, c: char) -> bool {
-        match self.here {
+    fn eat(&mut self, c: char) -> bool {
+        match self.here() {
             Some(cc) if c == cc => {
                 self.advance();
                 true
@@ -3217,10 +3260,10 @@ impl<'s> Stream<'s> {
 
     /// Advances by two characters if and only if the current character is `c` and the next character is `d`.
     #[inline]
-    pub fn eat2(&mut self, c: char, d: char) -> bool {
-        match self.here {
+    fn eat2(&mut self, c: char, d: char) -> bool {
+        match self.here() {
             Some(cc) if c == cc => {
-                match self.next {
+                match self.next() {
                     Some(dd) if d == dd => {
                         self.advance();
                         self.advance();
@@ -3235,10 +3278,10 @@ impl<'s> Stream<'s> {
 
     /// Advances to the next character until the stream ends or `f` returns `false` for the current character.
     #[inline]
-    pub fn skip_while<F>(&mut self, mut f: F) where
+    fn skip_while<F>(&mut self, mut f: F) where
     F: FnMut(char) -> bool {
         loop {
-            match self.here {
+            match self.here() {
                 Some(c) => {
                     if f(c) {
                         self.advance();
@@ -3252,7 +3295,7 @@ impl<'s> Stream<'s> {
     }
 
     // #[inline]
-    // pub fn skip_str_dbl_chars(&mut self) {
+    // fn skip_str_dbl_chars(&mut self) {
     //     self.skip_while(|c| match c {
     //         '\\' | '"' => false,
     //         _ => true,
@@ -3260,7 +3303,7 @@ impl<'s> Stream<'s> {
     // }
 
     // #[inline]
-    // pub fn skip_str_sgl_chars(&mut self) {
+    // fn skip_str_sgl_chars(&mut self) {
     //     self.skip_while(|c| match c {
     //         '\\' | '\'' => false,
     //         _ => true,
@@ -3269,7 +3312,7 @@ impl<'s> Stream<'s> {
 
     /// Advances past any binary digits (`0` or `1`).
     #[inline]
-    pub fn skip_bin_digits(&mut self) {
+    fn skip_bin_digits(&mut self) {
         self.skip_while(|c| match c {
             '0'...'1' => true,
             _ => false,
@@ -3278,7 +3321,7 @@ impl<'s> Stream<'s> {
 
     /// Advances past any octal digits (`0` through `7`).
     #[inline]
-    pub fn skip_oct_digits(&mut self) {
+    fn skip_oct_digits(&mut self) {
         self.skip_while(|c| match c {
             '0'...'7' => true,
             _ => false,
@@ -3287,7 +3330,7 @@ impl<'s> Stream<'s> {
 
     /// Advances past any decimal digits (`0` through `9`).
     #[inline]
-    pub fn skip_dec_digits(&mut self) {
+    fn skip_dec_digits(&mut self) {
         self.skip_while(|c| match c {
             '0'...'9' => true,
             _ => false,
@@ -3296,7 +3339,7 @@ impl<'s> Stream<'s> {
 
     /// Advances past any hexadecimal digits (`0` through `9` and `a` through `f`, case insensitive).
     #[inline]
-    pub fn skip_hex_digits(&mut self) {
+    fn skip_hex_digits(&mut self) {
         self.skip_while(|c| match c {
             '0'...'9' | 'a'...'f' | 'A'...'F' => true,
             _ => false,
@@ -3305,7 +3348,7 @@ impl<'s> Stream<'s> {
 
     /// Advances past any characters in the Unicode category [ID_Continue](http://unicode.org/reports/tr31/).
     #[inline]
-    pub fn skip_id_continue_chars(&mut self) {
+    fn skip_id_continue_chars(&mut self) {
         self.skip_while(|c| match c {
               '$'
             | '_'
@@ -4503,22 +4546,27 @@ impl<'s> Stream<'s> {
     ///
     /// Returns <code>(<var>ws</var>, <var>nl</var>)</code> where <var>ws</var> is a slice covering the whitespace skipped and <var>nl</var> is true if and only if the whitespace contained a newline.
     #[inline]
-    pub fn skip_ws(&mut self) -> Option<(&'s str, bool)> {
-        let start = self.loc;
+    fn skip_ws(&mut self) -> Option<(&'s str, bool)> {
+        let start_pos = self.pos();
+        let mut nl_before = false;
         loop {
-            match self.here {
+            match self.here() {
                 Some(c) => match c {
+                      '\u{000A}' // LINE FEED (LF)          <LF>
+                    | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
+                    | '\u{2028}' // LINE SEPARATOR          <LS>
+                    | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
+                    => {
+                        nl_before = true;
+                        self.advance();
+                    }
+
                       '\u{0009}' // CHARACTER TABULATION
                     | '\u{000B}' // LINE TABULATION
                     | '\u{000C}' // FORM FEED
                     | '\u{0020}' // SPACE
                     | '\u{00A0}' // NO-BREAK SPACE
                     | '\u{FEFF}' // ZERO WIDTH NO-BREAK SPACE
-
-                    | '\u{000A}' // LINE FEED (LF)          <LF>
-                    | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
-                    | '\u{2028}' // LINE SEPARATOR          <LS>
-                    | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
 
                     // Zs (Space_Separator):
                         | '\u{1680}' // OGHAM SPACE MARK
@@ -4547,16 +4595,16 @@ impl<'s> Stream<'s> {
                     //     self.advance();
                     //     nl = true;
                     // }
-                    '/' => match self.next {
+                    '/' => match self.next() {
                         Some('*') => {
                             self.advance();
                             self.advance();
                             'outer: loop {
-                                match self.here {
+                                match self.here() {
                                     Some('*') => {
                                         loop {
                                             self.advance();
-                                            match self.here {
+                                            match self.here() {
                                                 Some('/') => {
                                                     self.advance();
                                                     break 'outer
@@ -4571,6 +4619,14 @@ impl<'s> Stream<'s> {
                                                 }
                                             }
                                         }
+                                    }
+                                      Some('\u{000A}') // LINE FEED (LF)          <LF>
+                                    | Some('\u{000D}') // CARRIAGE RETURN (CR)    <CR>
+                                    | Some('\u{2028}') // LINE SEPARATOR          <LS>
+                                    | Some('\u{2029}') // PARAGRAPH SEPARATOR     <PS>
+                                    => {
+                                        nl_before = true;
+                                        self.advance();
                                     }
                                     Some(_) => {
                                         self.advance();
@@ -4600,55 +4656,128 @@ impl<'s> Stream<'s> {
                 None => break,
             }
         }
-        Some((self.str_from(start.pos), start.row < self.loc.row))
+        Some((self.str_from(start_pos), nl_before))
+    }
+}
+
+/// Generic source code stream with byte offset information.
+///
+/// A `PosStream` advances over its input one character at a time, providing two characters of lookahead. If you need location information, use a [`LocStream`](type.LocStream.html) instead.
+#[derive(Debug)]
+pub struct PosStream<'s> {
+    input: &'s str,
+
+    pos: usize,
+    here: Option<char>,
+
+    next_pos: usize,
+    next_width: usize,
+    next: Option<char>,
+}
+
+impl<'s> Stream<'s> for PosStream<'s> {
+    #[inline]
+    fn new(input: &'s str) -> Self {
+        let mut stream = PosStream {
+            input,
+            pos: 0,
+            here: None,
+            next_pos: 0,
+            next_width: 0,
+            next: None,
+        };
+        stream.advance();
+        stream.advance();
+        stream
+    }
+
+    #[inline]
+    fn advance(&mut self) -> Option<char> {
+        let next = {
+            self.pos = self.next_pos;
+            self.next_pos += self.next_width;
+
+            if self.next_pos >= self.input.len() {
+                self.next_width = 0;
+                None
+            } else {
+                let (next, width) = unsafe {
+                    char_at_unchecked(self.input, self.next_pos)
+                };
+                self.next_width = width;
+                Some(next)
+            }
+        };
+        mem::replace(&mut self.here, mem::replace(&mut self.next, next))
+    }
+
+    #[inline]
+    fn here(&self) -> Option<char> { self.here }
+
+    #[inline]
+    fn next(&self) -> Option<char> { self.next }
+
+    #[inline]
+    fn pos(&self) -> usize { self.pos }
+
+    #[inline]
+    fn input(&self) -> &'s str { self.input }
+}
+
+/// Generic source code stream with row/column information.
+///
+/// A `LocStream` advances over its input one character at a time, tracking line and column information and providing two characters of lookahead. If you don't need location information, you can use the faster [`PosStream`](type.PosStream.html) instead.
+#[derive(Debug)]
+pub struct LocStream<'s> {
+    input: &'s str,
+
+    loc: Loc,
+    here: Option<char>,
+
+    next_pos: usize,
+    next_width: usize,
+    next: Option<char>,
+}
+
+impl<'s> LocStream<'s> {
+    /// The location of the current character.
+    #[inline]
+    fn loc(&self) -> Loc { self.loc }
+}
+
+impl<'s> Stream<'s> for LocStream<'s> {
+    fn new(input: &'s str) -> Self {
+        let mut stream = LocStream {
+            input,
+            loc: Default::default(),
+            here: None,
+            next_pos: 0,
+            next_width: 0,
+            next: None,
+        };
+        stream.advance();
+        stream.advance();
+        stream
     }
 
     /// The bytewise position of the current character.
     #[inline]
-    pub fn pos(&self) -> usize {
-        self.loc.pos
-    }
-
-    /// The location of the current character.
-    #[inline]
-    pub fn loc(&self) -> Loc {
-        self.loc
-    }
+    fn pos(&self) -> usize { self.loc.pos }
 
     /// The current character, or `None` if the stream has reached the end of its input.
     #[inline]
-    pub fn here(&self) -> Option<char> {
-        self.here
-    }
+    fn here(&self) -> Option<char> { self.here }
 
     /// The next character, or `None` if the stream has reached the end of its input.
     #[inline]
-    pub fn next(&self) -> Option<char> {
-        self.next
-    }
+    fn next(&self) -> Option<char> { self.next }
 
     /// The entire input source code.
     #[inline]
-    pub fn input(&self) -> &'s str {
-        self.input
-    }
-
-    /// A slice of the input source code from the byte at `start` up to, but not including the first byte of the current character.
-    #[inline]
-    pub fn str_from(&self, start: usize) -> &'s str {
-        &self.input[start..self.loc.pos]
-    }
-
-    /// A slice of the input source code from the byte at `start` up to, but not including the byte at `end`.
-    #[inline]
-    pub fn str_range(&self, start: usize, end: usize) -> &'s str {
-        &self.input[start..end]
-    }
-
-    // TODO pub fn advance_by(&mut self, n: usize) -> &'s str {}
+    fn input(&self) -> &'s str { self.input }
 
     /// Advances the stream by one character, returning the character advanced past or `None` if the stream was already at the end of its input.
-    pub fn advance(&mut self) -> Option<char> {
+    fn advance(&mut self) -> Option<char> {
         match self.here {
             // TODO count both \r and \r\n as one newline
               Some('\u{000A}') // LINE FEED (LF)            <LF>
@@ -4663,8 +4792,8 @@ impl<'s> Stream<'s> {
             None => {}
         }
         let next = {
-            let new_pos = self.next_pos + self.next_width;
-            self.loc.pos = mem::replace(&mut self.next_pos, new_pos);
+            self.loc.pos = self.next_pos;
+            self.next_pos += self.next_width;
 
             if self.next_pos >= self.input.len() {
                 self.next_width = 0;
@@ -5693,7 +5822,7 @@ mod test {
         file.read_to_string(&mut contents).unwrap();
 
         b.iter(|| {
-            let mut stream = Stream::new(&contents);
+            let mut stream = LocStream::new(&contents);
             while let Some(_) = stream.here() {
                 stream.advance();
             }
