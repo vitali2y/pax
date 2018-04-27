@@ -683,19 +683,19 @@ fn run() -> Result<(), CliError> {
                     if map.is_some() {
                         return Err(CliError::DuplicateOption(arg))
                     }
-                    map = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
+                    map = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
                 }
                 "-i" | "--input" => {
                     if input.is_some() {
                         return Err(CliError::DuplicateOption(arg))
                     }
-                    input = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
+                    input = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
                 }
                 "-o" | "--output" => {
                     if output.is_some() {
                         return Err(CliError::DuplicateOption(arg))
                     }
-                    output = Some(iter.next().ok_or(CliError::MissingOptionValue(arg))?)
+                    output = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
                 }
                 _ => {
                     if arg.starts_with("-") {
@@ -719,7 +719,7 @@ fn run() -> Result<(), CliError> {
 
     let input = input.ok_or(CliError::MissingFileName)?;
     let input_dir = env::current_dir()?;
-    let output = output.unwrap_or("-".to_owned());
+    let output = output.unwrap_or_else(|| "-".to_owned());
 
     let map_output = if map_inline {
         SourceMapOutput::Inline
