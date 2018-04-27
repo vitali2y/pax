@@ -694,7 +694,7 @@ fn run() -> Result<(), CliError> {
                     output = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
                 }
                 _ => {
-                    if arg.starts_with("-") {
+                    if arg.starts_with('-') {
                         return Err(CliError::UnknownOption(arg))
                     }
                     if input.is_none() {
