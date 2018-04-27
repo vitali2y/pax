@@ -487,11 +487,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || worker.run()).unwrap()
     // }).collect();
 
-    loop {
-        let work_done = match rx.recv() {
-            Ok(work_done) => work_done,
-            Err(_) => break,
-        };
+    while let Ok(work_done) = rx.recv() {
         // eprintln!("{:?}", work_done);
         let work_done = match work_done {
             Err(error) => {
@@ -1191,10 +1187,9 @@ impl Worker {
                         _ => {}
                     }
                     let new_path = dir.join(&suffix);
-                    match Self::resolve_path_or_module(self.input_options, Some(context), new_path)? {
-                        Some(result) => return Ok(Resolved::Normal(result)),
-                        None => {}
-                    };
+                    if let Some(result) = Self::resolve_path_or_module(self.input_options, Some(context), new_path)? {
+                        return Ok(Resolved::Normal(result))
+                    }
                 }
 
                 Err(CliError::ModuleNotFound {
