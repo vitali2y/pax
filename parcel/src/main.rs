@@ -28,8 +28,8 @@ use esparse::lex::{self, Tt};
 
 mod es6;
 
-const HEAD_JS: &'static str = include_str!("head.js");
-const TAIL_JS: &'static str = include_str!("tail.js");
+const HEAD_JS: &str = include_str!("head.js");
+const TAIL_JS: &str = include_str!("tail.js");
 
 fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s, str>>, CliError> {
     // TODO should we panic on dynamic requires?
@@ -808,8 +808,8 @@ fn run() -> Result<(), CliError> {
     }
 }
 
-const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
-const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "\
