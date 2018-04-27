@@ -748,7 +748,7 @@ fn run() -> Result<(), CliError> {
     if watch {
         let mut modules = bundle(&entry_point, input_options, &output, &map_output)?;
         let elapsed = entry_inst.elapsed();
-        let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
+        let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_nanos() / 1_000_000);
 
         let (tx, rx) = mpsc::channel();
         let debounce_dur = time::Duration::from_millis(5);
@@ -771,7 +771,7 @@ fn run() -> Result<(), CliError> {
             match bundle(&entry_point, input_options, &output, &map_output) {
                 Ok(new_modules) => {
                     let elapsed = start_inst.elapsed();
-                    let ms = elapsed.as_secs() * 1_000 + (elapsed.subsec_nanos() / 1_000_000) as u64;
+                    let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_nanos() / 1_000_000);
                     eprintln!("generate {output} in {ms} ms",
                         output = output,
                         ms = ms);
