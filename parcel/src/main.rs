@@ -1111,7 +1111,7 @@ impl PathExt for Path {
 impl Worker {
     fn run(mut self) {
         while let Some(work) = self.get_work() {
-            if let Err(_) = self.tx.send(match work {
+            let work_done = match work {
                 Work::Resolve { context, name } => {
                     self.resolve(&context, &name)
                     .map(|resolved| WorkDone::Resolve {
@@ -1127,7 +1127,8 @@ impl Worker {
                         info,
                     })
                 }
-            }) { return }
+            };
+            if self.tx.send(work_done).is_err() { return }
         }
     }
 
