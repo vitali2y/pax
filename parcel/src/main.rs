@@ -158,7 +158,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         let modules = self.sorted_modules();
         let dir = self.entry_point.parent().unwrap();
 
-        w.write_all(r#"{"version":3,"file":"","sourceRoot":"","sources":["#.as_bytes())?;
+        w.write_all(br#"{"version":3,"file":"","sourceRoot":"","sources":["#)?;
 
         let mut comma = false;
         for &(f, _) in &modules {
@@ -171,7 +171,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             write_json_string(w, string.as_ref())?;
             comma = true;
         }
-        w.write_all(r#"],"sourcesContent":["#.as_bytes())?;
+        w.write_all(br#"],"sourcesContent":["#)?;
 
         let mut comma = false;
         for &(_, module) in &modules {
@@ -181,7 +181,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             write_json_string(w, module.source.original.as_ref().unwrap_or_else(|| &module.source.body))?;
             comma = true;
         }
-        w.write_all(r#"],"names":[],"mappings":""#.as_bytes())?;
+        w.write_all(br#"],"names":[],"mappings":""#)?;
 
         let prefix_len = count_lines(HEAD_JS); /*+ this.mains.size*/
         for _ in 0..prefix_len {
@@ -224,7 +224,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         for _ in 0..2 + count_lines(TAIL_JS) + 1 - 1 - 1 {
             w.write_all(b";")?;
         }
-        w.write_all(r#""}"#.as_bytes())?;
+        w.write_all(br#""}"#)?;
         Ok(())
     }
 
