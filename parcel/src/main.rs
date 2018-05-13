@@ -26,6 +26,7 @@ use crossbeam::sync::SegQueue;
 use notify::Watcher;
 use esparse::lex::{self, Tt};
 
+mod opts;
 mod es6;
 
 const HEAD_JS: &str = include_str!("head.js");
@@ -587,132 +588,6 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     Ok(writer.modules)
 }
 
-fn expand_args<I: IntoIterator<Item = String>>(args: I) -> ExpandArgs<I::IntoIter> {
-    ExpandArgs {
-        arg: None,
-        args: args.into_iter(),
-        state: ExpandArgState::Start,
-    }
-}
-
-#[derive(Debug)]
-struct ExpandArgs<I> {
-    arg: Option<String>,
-    args: I,
-    state: ExpandArgState,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ExpandArgState {
-    Start,
-    ShortOption(usize),
-    Raw,
-    Done,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Arg {
-    Opt(String),
-    Pos(String),
-}
-
-impl<I: Iterator<Item = String>> ExpandArgs<I> {
-    fn next_arg(&mut self) -> Option<String> {
-        match self.state {
-            ExpandArgState::Done => None,
-            ExpandArgState::Start |
-            ExpandArgState::Raw |
-            ExpandArgState::ShortOption(_) => self.args.next(),
-        }
-    }
-}
-
-impl<I: Iterator<Item = String>> Iterator for ExpandArgs<I> {
-    type Item = Arg;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match self.state {
-                ExpandArgState::Start => {
-                    let arg = match self.args.next() {
-                        None => {
-                            self.state = ExpandArgState::Done;
-                            return None
-                        }
-                        Some(arg) => arg,
-                    };
-
-                    #[derive(Debug)]
-                    enum ExpandArgType {
-                        Short,
-                        Long,
-                        Raw,
-                        Pos,
-                    }
-                    let ty = {
-                        let mut chars = arg.chars();
-                        match chars.next() {
-                            Some('-') => match chars.next() {
-                                Some('-') => {
-                                    if chars.next().is_none() {
-                                        ExpandArgType::Raw
-                                    } else {
-                                        ExpandArgType::Long
-                                    }
-                                }
-                                Some(_) => ExpandArgType::Short,
-                                None => ExpandArgType::Pos,
-                            }
-                            _ => ExpandArgType::Pos,
-                        }
-                    };
-                    match ty {
-                        ExpandArgType::Raw => {
-                            self.state = ExpandArgState::Raw;
-                        }
-                        ExpandArgType::Short => {
-                            self.arg = Some(arg);
-                            self.state = ExpandArgState::ShortOption(1);
-                        }
-                        ExpandArgType::Long => {
-                            return Some(Arg::Opt(arg))
-                        }
-                        ExpandArgType::Pos => {
-                            return Some(Arg::Pos(arg))
-                        }
-                    }
-                }
-                ExpandArgState::Raw => {
-                    let arg = self.args.next();
-                    if arg.is_none() {
-                        self.state = ExpandArgState::Done;
-                    }
-                    return arg.map(Arg::Pos)
-                }
-                ExpandArgState::ShortOption(n) => {
-                    let c = {
-                        let mut indices = self.arg.as_ref().unwrap()[n..].char_indices();
-                        match indices.next() {
-                            Some((_, c)) => {
-                                self.state = match indices.next() {
-                                    Some((m, _)) => ExpandArgState::ShortOption(n + m),
-                                    None => ExpandArgState::Start,
-                                };
-                                c
-                            }
-                            None => unreachable!(),
-                        }
-                    };
-                    if self.state == ExpandArgState::Start {
-                        self.arg = None;
-                    }
-                    return Some(Arg::Opt(format!("-{}", c)))
-                }
-                ExpandArgState::Done => return None,
-            }
-        }
-    }
-}
-// impl iter::FusedIterator for ExpandArgs {}
-
 fn run() -> Result<(), CliError> {
     let entry_inst = time::Instant::now();
 
@@ -726,10 +601,10 @@ fn run() -> Result<(), CliError> {
     let mut watch = false;
     let mut quiet_watch = false;
 
-    let mut iter = expand_args(env::args().skip(1));
+    let mut iter = opts::args();
     while let Some(arg) = iter.next() {
         let opt = match arg {
-            Arg::Pos(arg) => {
+            opts::Arg::Pos(arg) => {
                 if input.is_none() {
                     input = Some(arg)
                 } else if output.is_none() {
@@ -739,7 +614,7 @@ fn run() -> Result<(), CliError> {
                 }
                 continue
             }
-            Arg::Opt(opt) => opt,
+            opts::Arg::Opt(opt) => opt,
         };
         match &*opt {
             "-h" | "--help" => return Err(CliError::Help),
