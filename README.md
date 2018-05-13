@@ -50,7 +50,14 @@ exports.square = x => x * x
 > pax index.js bundle.js
 ```
 
-Slap on a `<script src=bundle.js>`, and you’re ready to go.
+Slap on a `<script src=bundle.js>`, and you’re ready to go. Pass `-w` to rebuild whenever you change a file.
+
+```sh
+> pax -w index.js bundle.js
+ ready bundle.js in 1 ms
+update bundle.js in 1 ms
+...
+```
 
 # Does it do source maps?
 
@@ -194,12 +201,12 @@ sys     0m0.026s
 
 # realtime!
 > pax -w examples/simple bundle.js
-ready in 2 ms
-generate bundle.js in 2 ms
-generate bundle.js in 2 ms
-generate bundle.js in 1 ms
-generate bundle.js in 2 ms
-generate bundle.js in 1 ms
-generate bundle.js in 3 ms
+ ready bundle.js in 2 ms
+update bundle.js in 2 ms
+update bundle.js in 2 ms
+update bundle.js in 1 ms
+update bundle.js in 2 ms
+update bundle.js in 1 ms
+update bundle.js in 3 ms
 ^C
 ```

@@ -704,7 +704,7 @@ fn run() -> Result<(), CliError> {
             watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
         }
 
-        eprintln!("ready in {} ms", ms);
+        eprintln!(" ready {output} in {ms} ms", output = output, ms = ms);
 
         loop {
             let first_event = rx.recv().expect("notify::watcher disconnected");
@@ -718,7 +718,7 @@ fn run() -> Result<(), CliError> {
                 Ok(new_modules) => {
                     let elapsed = start_inst.elapsed();
                     let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_nanos() / 1_000_000);
-                    eprintln!("generate {output} in {ms} ms",
+                    eprintln!("update {output} in {ms} ms",
                         output = output,
                         ms = ms);
 
