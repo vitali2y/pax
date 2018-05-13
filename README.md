@@ -16,17 +16,17 @@ Because your bundler is **too slow**.
 
 You know the feeling. You make that tweak, hit <kbd>⌘S</kbd> <kbd>⌘Tab</kbd> <kbd>⌘R</kbd>, and… **nothing changes**. You get the old version. You beat the bundler.
 
-You wait a few seconds, hit <kbd>⌘R</kbd> again, and your changes finally show up, but it's too late. **You've lost momentum.** It's the wrong shade of pink. The bug still happens sometimes.
+You wait a few seconds, hit <kbd>⌘R</kbd> again, and your changes finally show up. But it’s too late—**you’ve lost momentum.** It’s the wrong shade of pink. You spelled “menu” with a z. The bug still happens sometimes.
 
-Rinse. Repeat. Ten cycles later, things are working again. You've succeeded. It's time to `git commit`. But you spent **more time waiting than working**. And it's your bundler's fault.
+Rinse. Repeat. Ten cycles later, things are looking good. It’s time to `git commit`. But you spent **more time waiting than working**. And it’s your bundler’s fault.
 
-Pax is a bundler. But you'll never beat it. Why?
+Pax is a bundler. But you’ll never beat it. Why?
 
-- It knows exactly enough about JavaScript to handle dependency resolution. It doesn't even bother parsing most of your source code.
-- It's parallelized, so it makes the most of your cores.
-- It's minimal. It isn't bogged down by features you don't need.
+- It knows exactly enough about JavaScript to handle dependency resolution. It doesn’t even bother parsing most of your source code.
+- It’s parallelized, so it makes the most of your cores.
+- It’s minimal. It isn’t bogged down by features you don’t need.
 
-Don't waste time waiting for your bundler to do its thing. Use Pax while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, slow-as-molasses bundler for releases, when you don't care how long it takes to run.
+Don’t waste time waiting for your bundler to do its thing. Use Pax while you’re developing, and **iterate to your heart’s content**. Use your super-cool, magical, slow-as-molasses bundler for releases, when you don’t care how long it takes to run.
 
 # How do I get it?
 
@@ -34,7 +34,7 @@ Don't waste time waiting for your bundler to do its thing. Use Pax while you're 
 > cargo install pax
 ```
 
-If you don't have `cargo`, install it with [https://rustup.rs](https://rustup.rs/).
+If you don’t have `cargo`, install it with [https://rustup.rs](https://rustup.rs/).
 
 # How do I use it?
 
@@ -52,7 +52,7 @@ exports.square = x => x * x
 > pax index.js bundle.js
 ```
 
-Slap on a `<script src=bundle.js>`, and you're ready to go.
+Slap on a `<script src=bundle.js>`, and you’re ready to go.
 
 # Does it do source maps?
 
@@ -73,7 +73,7 @@ Of course!
 
 # Modules?
 
-That's technically not a question. But yes.
+That’s technically not a question. But yes.
 
 ```js
 // index.mjs
