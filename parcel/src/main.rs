@@ -1141,12 +1141,13 @@ impl Worker {
     }
 
     fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
-        let path = Path::new(name);
         if name.is_empty() {
-            Err(CliError::EmptyModuleName {
+            return Err(CliError::EmptyModuleName {
                 context: context.to_owned()
             })
-        } else if path.is_absolute() {
+        }
+        let path = Path::new(name);
+        if path.is_absolute() {
             Ok(Resolved::Normal(
                 Self::resolve_path_or_module(self.input_options, Some(context),path.to_owned())?.ok_or_else(|| {
                     CliError::ModuleNotFound {
