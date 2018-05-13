@@ -1,6 +1,6 @@
 # Pax
 
-The fastest JavaScript bundler in the galaxy. Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
+The [fastest](#is-it-fast) JavaScript bundler in the galaxy. Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
 
 - [Why do I need it?](#why-do-i-need-it)
 - [How do I get it?](#how-do-i-get-it)
