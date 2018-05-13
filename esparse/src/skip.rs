@@ -480,10 +480,10 @@ mod test {
         let mut lexer = lex::Lexer::new_unnamed(&cleaned);
         skip::expr(&mut lexer, prec).unwrap();
         let here = lexer.here();
-        let here_pos = here.span.start.pos - here.ws_before.len();
+        let here_pos = here.span.start - here.ws_before.len();
         assert!(
             here_pos <= prefix.len() &&
-            prefix.len() <= here.span.start.pos,
+            prefix.len() <= here.span.start,
             "expected skip::expr to skip to:\n{}@{}\nbut it skipped to:\n{}@{}",
             &cleaned[..prefix.len()], &cleaned[prefix.len()..],
             &cleaned[..here_pos], &cleaned[here_pos..],
