@@ -711,7 +711,7 @@ impl<I: Iterator<Item = String>> Iterator for ExpandArgs<I> {
         }
     }
 }
-// impl iter::FusedIterator for ExpandArg {}
+// impl iter::FusedIterator for ExpandArgs {}
 
 fn run() -> Result<(), CliError> {
     let entry_inst = time::Instant::now();
