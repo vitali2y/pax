@@ -102,7 +102,7 @@ If you need your modules to be in `.js` files for some reason, use `-E` (`--es-s
 
 ```
 > pax --help
-pax v0.1.2
+pax v0.2.1
 
 Usage:
     pax [options] <input> [output]
