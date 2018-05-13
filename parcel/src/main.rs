@@ -1050,8 +1050,7 @@ impl PathBufExt for PathBuf {
                 }
                 Component::RootDir => {
                     self.push(path::MAIN_SEPARATOR.to_string());
-                    // while self.pop() {}
-                },
+                }
                 Component::CurDir => {}
                 Component::ParentDir => {
                     self.pop();
