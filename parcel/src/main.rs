@@ -1141,62 +1141,58 @@ impl Worker {
     }
 
     fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
-        // match name.chars().next() {
-        match name.as_bytes().get(0) {
-            None => Err(CliError::EmptyModuleName {
+        let path = Path::new(name);
+        if name.is_empty() {
+            Err(CliError::EmptyModuleName {
                 context: context.to_owned()
-            }),
-            // TODO absolute paths on windows?
-            Some(&b'.') => {
-                let mut dir = context.to_owned();
-                let did_pop = dir.pop(); // to directory
-                debug_assert!(did_pop);
-                dir.append_resolving(Path::new(name));
-                Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(self.input_options, Some(context), dir)?.ok_or_else(|| {
-                        CliError::ModuleNotFound {
-                            context: context.to_owned(),
-                            name: name.to_owned(),
-                        }
-                    })?,
-                ))
+            })
+        } else if path.is_absolute() {
+            Ok(Resolved::Normal(
+                Self::resolve_path_or_module(self.input_options, Some(context),path.to_owned())?.ok_or_else(|| {
+                    CliError::ModuleNotFound {
+                        context: context.to_owned(),
+                        name: name.to_owned(),
+                    }
+                })?,
+            ))
+        } else if path.starts_with(".") || path.starts_with("..") {
+            let mut dir = context.to_owned();
+            let did_pop = dir.pop(); // to directory
+            debug_assert!(did_pop);
+            dir.append_resolving(path);
+            Ok(Resolved::Normal(
+                Self::resolve_path_or_module(self.input_options, Some(context), dir)?.ok_or_else(|| {
+                    CliError::ModuleNotFound {
+                        context: context.to_owned(),
+                        name: name.to_owned(),
+                    }
+                })?,
+            ))
+        } else {
+            match name {
+                "assert" | "buffer" | "child_process" | "cluster" | "crypto" | "dgram" | "dns" | "domain" | "events" | "fs" | "http" | "https" | "net" | "os" | "path" | "punycode" | "querystring" | "readline" | "stream" | "string_decoder" | "tls" | "tty" | "url" | "util" | "v8" | "vm" | "zlib" => return Ok(Resolved::Core),
+                _ => {}
             }
-            Some(&b'/') => {
-                Ok(Resolved::Normal(
-                    Self::resolve_path_or_module(self.input_options, Some(context), PathBuf::from(name))?.ok_or_else(|| {
-                        CliError::ModuleNotFound {
-                            context: context.to_owned(),
-                            name: name.to_owned(),
-                        }
-                    })?,
-                ))
-            }
-            _ => {
-                match name {
-                    "assert" | "buffer" | "child_process" | "cluster" | "crypto" | "dgram" | "dns" | "domain" | "events" | "fs" | "http" | "https" | "net" | "os" | "path" | "punycode" | "querystring" | "readline" | "stream" | "string_decoder" | "tls" | "tty" | "url" | "util" | "v8" | "vm" | "zlib" => return Ok(Resolved::Core),
+
+            let mut suffix = PathBuf::from("node_modules");
+            suffix.push(name);
+
+            let mut dir = context.to_owned();
+            while dir.pop() {
+                match dir.file_name() {
+                    Some(s) if s == "node_modules" => continue,
                     _ => {}
                 }
-
-                let mut suffix = PathBuf::from("node_modules");
-                suffix.push(name);
-
-                let mut dir = context.to_owned();
-                while dir.pop() {
-                    match dir.file_name() {
-                        Some(s) if s == "node_modules" => continue,
-                        _ => {}
-                    }
-                    let new_path = dir.join(&suffix);
-                    if let Some(result) = Self::resolve_path_or_module(self.input_options, Some(context), new_path)? {
-                        return Ok(Resolved::Normal(result))
-                    }
+                let new_path = dir.join(&suffix);
+                if let Some(result) = Self::resolve_path_or_module(self.input_options, Some(context), new_path)? {
+                    return Ok(Resolved::Normal(result))
                 }
-
-                Err(CliError::ModuleNotFound {
-                    context: context.to_owned(),
-                    name: name.to_owned(),
-                })
             }
+
+            Err(CliError::ModuleNotFound {
+                context: context.to_owned(),
+                name: name.to_owned(),
+            })
         }
     }
     fn resolve_path_or_module(input_options: InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
