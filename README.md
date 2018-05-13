@@ -26,7 +26,7 @@ Parcel Redux is a bundler. But you'll never beat it. Why?
 - It's fully parallelized, so it can make the most of your cores.
 - It's minimal. It doesn't support plugins
 
-Don't waste time waiting for your bundler to do its thing. Use Parcel Redux while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, really slow bundler for releases, when you don't care how long it takes to run.
+Don't waste time waiting for your bundler to do its thing. Use Parcel Redux while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, slow-as-molasses bundler for releases, when you don't care how long it takes to run.
 
 # How do I get it?
 
