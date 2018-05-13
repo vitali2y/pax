@@ -2,7 +2,13 @@
 
 The fastest JavaScript bundler in the galaxy. Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
 
-[Why do I need it?](#why-do-i-need-it) · [How do I get it?](#how-do-i-get-it) · [How do I use it?](#how-do-i-use-it) · [Does it do source maps?](#does-it-do-source-maps) · [Modules?](#modules) · [What are the options?](#what-are-the-options) · [Is it fast?](#is-it-fast)
+- [Why do I need it?](#why-do-i-need-it)
+- [How do I get it?](#how-do-i-get-it)
+- [How do I use it?](#how-do-i-use-it)
+- [Does it do source maps?](#does-it-do-source-maps)
+- [Modules?](#modules)
+- [What are the options?](#what-are-the-options)
+- [Is it fast?](#is-it-fast)
 
 # Why do I need it?
 
