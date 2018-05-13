@@ -94,7 +94,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         w.write_all(HEAD_JS.as_bytes())?;
         // for (module, main) in self.mains {
         //     write!(w,
-        //         "\n  Parcel.mains[{mod_path}] = {main_path}",
+        //         "\n  Pax.mains[{mod_path}] = {main_path}",
         //         mod_path = Self::js_path(&module),
         //         main_path = Self::js_path(&main),
         //     );
@@ -106,7 +106,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             let filename = Self::js_path(&file);
 
             write!(w,
-                "\n  Parcel.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require) {{\n",
+                "\n  Pax.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require) {{\n",
                 filename = filename,
                 id = id,
                 deps = deps,
@@ -126,7 +126,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         }
         let main = Self::name_path(self.entry_point);
         write!(w,
-            "\n  Parcel.main = {main}; Parcel.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Parcel.main.module && Parcel.main.module.exports\n",
+            "\n  Pax.main = {main}; Pax.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Pax.main.module && Pax.main.module.exports\n",
             main = main,
         )?;
         w.write_all(TAIL_JS.as_bytes())?;

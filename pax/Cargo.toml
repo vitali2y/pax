@@ -1,10 +1,10 @@
 [package]
-name = "parcel"
+name = "pax"
 version = "0.1.2"
 authors = ["Nathan"]
 
 description = "The fastest JavaScript bundler around."
-repository = "https://github.com/nathan/parcel-redux"
+repository = "https://github.com/nathan/pax"
 license = "MIT"
 readme = "../README.md"
 

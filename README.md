@@ -1,4 +1,4 @@
-# Parcel Redux
+# Pax
 
 The fastest JavaScript bundler in the galaxy. Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
 
@@ -20,18 +20,18 @@ You wait a few seconds, hit <kbd>⌘R</kbd> again, and your changes finally show
 
 Rinse. Repeat. Ten cycles later, things are working again. You've succeeded. It's time to `git commit`. But you spent **more time waiting than working**. And it's your bundler's fault.
 
-Parcel Redux is a bundler. But you'll never beat it. Why?
+Pax is a bundler. But you'll never beat it. Why?
 
 - It knows exactly enough about JavaScript to handle dependency resolution. It doesn't even bother parsing most of your source code.
 - It's fully parallelized, so it can make the most of your cores.
-- It's minimal. It doesn't support plugins
+- It's minimal. It doesn't support plugins or 
 
-Don't waste time waiting for your bundler to do its thing. Use Parcel Redux while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, slow-as-molasses bundler for releases, when you don't care how long it takes to run.
+Don't waste time waiting for your bundler to do its thing. Use Pax while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, slow-as-molasses bundler for releases, when you don't care how long it takes to run.
 
 # How do I get it?
 
 ```sh
-> cargo install parcel
+> cargo install pax
 ```
 
 If you don't have `cargo`, install it with [https://rustup.rs](https://rustup.rs/).
@@ -49,26 +49,26 @@ exports.square = x => x * x
 ```
 
 ```sh
-> parcel index.js parcel.js
+> pax index.js bundle.js
 ```
 
-And then `node parcel.js` or `<script src=parcel.js>` to your heart's content.
+Slap on a `<script src=bundle.js>`, and you're ready to go.
 
 # Does it do source maps?
 
 Of course!
 
 ```sh
-# parcel.js and parcel.js.map
-> parcel index.js parcel.js
+# bundle.js and bundle.js.map
+> pax index.js bundle.js
 
-# parcel.js with inline map
-> parcel --map-inline index.js parcel.js
+# bundle.js with inline map
+> pax --map-inline index.js bundle.js
 
-# parcel.js with no source map
-> parcel index.js >parcel.js
+# bundle.js with no source map
+> pax index.js >bundle.js
 # or
-> parcel --no-map index.js parcel.js
+> pax --no-map index.js bundle.js
 ```
 
 # Modules?
@@ -88,7 +88,7 @@ export const square = x => x * x, cube = x => x * x * x
 ```
 
 ```
-> parcel -e index.mjs parcel.js
+> pax -e index.mjs bundle.js
 ```
 
 If you need your modules to be in `.js` files for some reason, use `-E` (`--es-syntax-everywhere`) instead of `-e` (`--es-syntax`).
@@ -96,12 +96,12 @@ If you need your modules to be in `.js` files for some reason, use `-E` (`--es-s
 # What are the options?
 
 ```
-> parcel --help
-parcel v0.1.2
+> pax --help
+pax v0.1.2
 
 Usage:
-    parcel [options] <input> [output]
-    parcel [-h | --help]
+    pax [options] <input> [output]
+    pax [-h | --help]
 
 Options:
     -i, --input <input>
@@ -169,7 +169,7 @@ sys     0m0.031s
 real    0m0.373s
 user    0m0.324s
 sys     0m0.051s
-> time parcel-redux index.js >parcel.js
+> time pax index.js >bundle.js
 real    0m0.010s
 user    0m0.005s
 sys     0m0.006s
@@ -179,7 +179,7 @@ sys     0m0.006s
 real    0m2.385s
 user    0m2.459s
 sys     0m0.416s
-> time parcel-redux src/main.js >parcel.js
+> time pax src/main.js >bundle.js
 real    0m0.037s
 user    0m0.071s
 sys     0m0.019s
@@ -189,13 +189,13 @@ sys     0m0.019s
 real    0m3.142s
 user    0m3.060s
 sys     0m0.483s
-> time parcel-redux src/main.js parcel.js
+> time pax src/main.js bundle.js
 real    0m0.046s
 user    0m0.077s
 sys     0m0.026s
 
 # realtime!
-> parcel-redux -w examples/simple bundle.js
+> pax -w examples/simple bundle.js
 ready in 2 ms
 generate bundle.js in 2 ms
 generate bundle.js in 2 ms

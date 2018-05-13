@@ -1,12 +1,12 @@
 ~function(global) {
-  const Parcel = {}
-  Parcel.baseRequire = typeof require !== "undefined" ? require : n => {
+  const Pax = {}
+  Pax.baseRequire = typeof require !== "undefined" ? require : n => {
     throw new Error(`Could not resolve module name: ${n}`)
   }
-  Parcel.modules = {}
-  Parcel.files = {}
-  Parcel.mains = {}
-  Parcel.resolve = (base, then) => {
+  Pax.modules = {}
+  Pax.files = {}
+  Pax.mains = {}
+  Pax.resolve = (base, then) => {
     base = base.split('/')
     base.shift()
     for (const p of then.split('/')) {
@@ -15,7 +15,7 @@
     }
     return '/' + base.join('/')
   }
-  Parcel.Module = function Module(filename, parent) {
+  Pax.Module = function Module(filename, parent) {
     this.filename = filename
     this.id = filename
     this.loaded = false
@@ -23,7 +23,7 @@
     this.children = []
     this.exports = {}
   }
-  Parcel.makeRequire = self => {
+  Pax.makeRequire = self => {
     const require = m => require._module(m).exports
     require._deps = {}
     require.main = self
@@ -35,16 +35,16 @@
       }
     }
     require._module = m => {
-      let fn = self ? require._deps[m] : Parcel.main
+      let fn = self ? require._deps[m] : Pax.main
       if (fn == null) {
-        const module = {exports: Parcel.baseRequire(m)}
+        const module = {exports: Pax.baseRequire(m)}
         require._deps[m] = {module: module}
         return module
       }
       if (fn.module) return fn.module
-      const module = new Parcel.Module(fn.filename, self)
+      const module = new Pax.Module(fn.filename, self)
       fn.module = module
-      module.require = Parcel.makeRequire(module)
+      module.require = Pax.makeRequire(module)
       module.require._deps = fn.deps
       module.require.main = self ? self.require.main : module
       if (self) self.children.push(module)
