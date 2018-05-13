@@ -23,8 +23,8 @@ Rinse. Repeat. Ten cycles later, things are working again. You've succeeded. It'
 Pax is a bundler. But you'll never beat it. Why?
 
 - It knows exactly enough about JavaScript to handle dependency resolution. It doesn't even bother parsing most of your source code.
-- It's fully parallelized, so it can make the most of your cores.
-- It's minimal. It doesn't support plugins or 
+- It's parallelized, so it makes the most of your cores.
+- It's minimal. It isn't bogged down by features you don't need.
 
 Don't waste time waiting for your bundler to do its thing. Use Pax while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, slow-as-molasses bundler for releases, when you don't care how long it takes to run.
 
