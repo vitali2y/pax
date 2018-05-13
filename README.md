@@ -1,10 +1,26 @@
 # Parcel Redux
 
-Because [Parcel](https://github.com/nathan/parcel#readme) wasn't already [fast enough](#is-it-fast).
+The fastest JavaScript bundler in the galaxy. Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
 
-Fully supports ECMAScript module syntax (`import`/`export`) in addition to CommonJS `require(<string>)`.
+[Why do I need it?](#why-do-i-need-it) · [How do I get it?](#how-do-i-get-it) · [How do I use it?](#how-do-i-use-it) · [Does it do source maps?](#does-it-do-source-maps) · [Modules?](#modules) · [What are the options?](#what-are-the-options) · [Is it fast?](#is-it-fast)
 
-[How do I get it?](#how-do-i-get-it) · [How do I use it?](#how-do-i-use-it) · [Does it do source maps?](#does-it-do-source-maps) · [Modules?](#modules) · [What are the options?](#what-are-the-options) · [Is it fast?](#is-it-fast)
+# Why do I need it?
+
+Because your bundler is **too slow**.
+
+You know the feeling. You make that tweak, hit <kbd>⌘S</kbd> <kbd>⌘Tab</kbd> <kbd>⌘R</kbd>, and… **nothing changes**. You get the old version. You beat the bundler.
+
+You wait a few seconds, hit <kbd>⌘R</kbd> again, and your changes finally show up, but it's too late. **You've lost momentum.** It's the wrong shade of pink. The bug still happens sometimes.
+
+Rinse. Repeat. Ten cycles later, things are working again. You've succeeded. It's time to `git commit`. But you spent **more time waiting than working**. And it's your bundler's fault.
+
+Parcel Redux is a bundler. But you'll never beat it. Why?
+
+- It knows exactly enough about JavaScript to handle dependency resolution. It doesn't even bother parsing most of your source code.
+- It's fully parallelized, so it can make the most of your cores.
+- It's minimal. It doesn't support plugins
+
+Don't waste time waiting for your bundler to do its thing. Use Parcel Redux while you're developing, and **iterate to your heart's content**. Use your super-cool, magical, really slow bundler for releases, when you don't care how long it takes to run.
 
 # How do I get it?
 
@@ -147,39 +163,27 @@ sys     0m0.031s
 real    0m0.373s
 user    0m0.324s
 sys     0m0.051s
-> time prcl index.js >parcel.js
-real    0m0.077s
-user    0m0.059s
-sys     0m0.017s
 > time parcel-redux index.js >parcel.js
 real    0m0.010s
 user    0m0.005s
 sys     0m0.006s
 
 # on a larger project
-> time browserify src/api-download.js >browserify.js
+> time browserify src/main.js >browserify.js
 real    0m2.385s
 user    0m2.459s
 sys     0m0.416s
-> time prcl src/api-download.js >parcel.js
-real    0m0.204s
-user    0m0.187s
-sys     0m0.083s
-> time parcel-redux src/api-download.js >parcel.js
+> time parcel-redux src/main.js >parcel.js
 real    0m0.037s
 user    0m0.071s
 sys     0m0.019s
 
 # want source maps?
-> time browserify -d src/api-download.js -o bundle.js
+> time browserify -d src/main.js -o bundle.js
 real    0m3.142s
 user    0m3.060s
 sys     0m0.483s
-> time prcl src/api-download.js parcel.js
-real    0m0.315s
-user    0m0.281s
-sys     0m0.100s
-> time parcel-redux src/api-download.js parcel.js
+> time parcel-redux src/main.js parcel.js
 real    0m0.046s
 user    0m0.077s
 sys     0m0.026s
