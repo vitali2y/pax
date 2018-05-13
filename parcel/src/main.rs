@@ -587,55 +587,124 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     Ok(writer.modules)
 }
 
-fn expand_arg(arg: String) -> ExpandArg {
-    ExpandArg {
-        arg: Some(arg),
+fn expand_args<I: IntoIterator<Item = String>>(args: I) -> ExpandArgs<I::IntoIter> {
+    ExpandArgs {
+        arg: None,
+        args: args.into_iter(),
         state: ExpandArgState::Start,
     }
 }
 
 #[derive(Debug)]
-struct ExpandArg {
+struct ExpandArgs<I> {
     arg: Option<String>,
+    args: I,
     state: ExpandArgState,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ExpandArgState {
     Start,
     ShortOption(usize),
+    Raw,
     Done,
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Arg {
+    Opt(String),
+    Pos(String),
+}
 
-impl Iterator for ExpandArg {
-    type Item = String;
+impl<I: Iterator<Item = String>> ExpandArgs<I> {
+    fn next_arg(&mut self) -> Option<String> {
+        match self.state {
+            ExpandArgState::Done => None,
+            ExpandArgState::Start |
+            ExpandArgState::Raw |
+            ExpandArgState::ShortOption(_) => self.args.next(),
+        }
+    }
+}
+
+impl<I: Iterator<Item = String>> Iterator for ExpandArgs<I> {
+    type Item = Arg;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.state {
                 ExpandArgState::Start => {
-                    let is_short = {
-                        let arg = self.arg.as_ref().unwrap().as_bytes();
-                        arg.len() >= 2 && arg[0] == b'-' && arg[1] != b'-'
+                    let arg = match self.args.next() {
+                        None => {
+                            self.state = ExpandArgState::Done;
+                            return None
+                        }
+                        Some(arg) => arg,
                     };
-                    if is_short {
-                        self.state = ExpandArgState::ShortOption(1);
-                    } else {
-                        self.state = ExpandArgState::Done;
-                        return self.arg.take()
+
+                    #[derive(Debug)]
+                    enum ExpandArgType {
+                        Short,
+                        Long,
+                        Raw,
+                        Pos,
+                    }
+                    let ty = {
+                        let mut chars = arg.chars();
+                        match chars.next() {
+                            Some('-') => match chars.next() {
+                                Some('-') => {
+                                    if chars.next().is_none() {
+                                        ExpandArgType::Raw
+                                    } else {
+                                        ExpandArgType::Long
+                                    }
+                                }
+                                Some(_) => ExpandArgType::Short,
+                                None => ExpandArgType::Pos,
+                            }
+                            _ => ExpandArgType::Pos,
+                        }
+                    };
+                    match ty {
+                        ExpandArgType::Raw => {
+                            self.state = ExpandArgState::Raw;
+                        }
+                        ExpandArgType::Short => {
+                            self.arg = Some(arg);
+                            self.state = ExpandArgState::ShortOption(1);
+                        }
+                        ExpandArgType::Long => {
+                            return Some(Arg::Opt(arg))
+                        }
+                        ExpandArgType::Pos => {
+                            return Some(Arg::Pos(arg))
+                        }
                     }
                 }
-                ExpandArgState::ShortOption(n) => {
-                    let mut indices = self.arg.as_ref().unwrap()[n..].char_indices();
-                    match indices.next() {
-                        Some((_, c)) => {
-                            self.state = match indices.next() {
-                                Some((m, _)) => ExpandArgState::ShortOption(n + m),
-                                None => ExpandArgState::Done,
-                            };
-                            return Some(format!("-{}", c))
-                        }
-                        None => unreachable!(),
+                ExpandArgState::Raw => {
+                    let arg = self.args.next();
+                    if arg.is_none() {
+                        self.state = ExpandArgState::Done;
                     }
+                    return arg.map(Arg::Pos)
+                }
+                ExpandArgState::ShortOption(n) => {
+                    let c = {
+                        let mut indices = self.arg.as_ref().unwrap()[n..].char_indices();
+                        match indices.next() {
+                            Some((_, c)) => {
+                                self.state = match indices.next() {
+                                    Some((m, _)) => ExpandArgState::ShortOption(n + m),
+                                    None => ExpandArgState::Start,
+                                };
+                                c
+                            }
+                            None => unreachable!(),
+                        }
+                    };
+                    if self.state == ExpandArgState::Start {
+                        self.arg = None;
+                    }
+                    return Some(Arg::Opt(format!("-{}", c)))
                 }
                 ExpandArgState::Done => return None,
             }
@@ -657,54 +726,56 @@ fn run() -> Result<(), CliError> {
     let mut watch = false;
     let mut quiet_watch = false;
 
-    let mut iter = env::args().skip(1);
+    let mut iter = expand_args(env::args().skip(1));
     while let Some(arg) = iter.next() {
-        for arg in expand_arg(arg) {
-            match &*arg {
-                "-h" | "--help" => return Err(CliError::Help),
-                "-v" | "--version" => return Err(CliError::Version),
-                "-w" | "--watch" => watch = true,
-                "-W" | "--quiet-watch" => {
-                    watch = true;
-                    quiet_watch = true;
-                },
-                "-I" | "--map-inline" => map_inline = true,
-                "-M" | "--no-map" => no_map = true,
-                "-e" | "--es-syntax" => es6_syntax = true,
-                "-E" | "--es-syntax-everywhere" => {
-                    es6_syntax = true;
-                    es6_syntax_everywhere = true;
+        let opt = match arg {
+            Arg::Pos(arg) => {
+                if input.is_none() {
+                    input = Some(arg)
+                } else if output.is_none() {
+                    output = Some(arg)
+                } else {
+                    return Err(CliError::UnexpectedArg(arg))
                 }
-                "-m" | "--map" => {
-                    if map.is_some() {
-                        return Err(CliError::DuplicateOption(arg))
-                    }
-                    map = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
+                continue
+            }
+            Arg::Opt(opt) => opt,
+        };
+        match &*opt {
+            "-h" | "--help" => return Err(CliError::Help),
+            "-v" | "--version" => return Err(CliError::Version),
+            "-w" | "--watch" => watch = true,
+            "-W" | "--quiet-watch" => {
+                watch = true;
+                quiet_watch = true;
+            },
+            "-I" | "--map-inline" => map_inline = true,
+            "-M" | "--no-map" => no_map = true,
+            "-e" | "--es-syntax" => es6_syntax = true,
+            "-E" | "--es-syntax-everywhere" => {
+                es6_syntax = true;
+                es6_syntax_everywhere = true;
+            }
+            "-m" | "--map" => {
+                if map.is_some() {
+                    return Err(CliError::DuplicateOption(opt))
                 }
-                "-i" | "--input" => {
-                    if input.is_some() {
-                        return Err(CliError::DuplicateOption(arg))
-                    }
-                    input = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
+                map = Some(iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?)
+            }
+            "-i" | "--input" => {
+                if input.is_some() {
+                    return Err(CliError::DuplicateOption(opt))
                 }
-                "-o" | "--output" => {
-                    if output.is_some() {
-                        return Err(CliError::DuplicateOption(arg))
-                    }
-                    output = Some(iter.next().ok_or_else(|| CliError::MissingOptionValue(arg))?)
+                input = Some(iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?)
+            }
+            "-o" | "--output" => {
+                if output.is_some() {
+                    return Err(CliError::DuplicateOption(opt))
                 }
-                _ => {
-                    if arg.starts_with('-') {
-                        return Err(CliError::UnknownOption(arg))
-                    }
-                    if input.is_none() {
-                        input = Some(arg)
-                    } else if output.is_none() {
-                        output = Some(arg)
-                    } else {
-                        return Err(CliError::UnexpectedArg(arg))
-                    }
-                }
+                output = Some(iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?)
+            }
+            _ => {
+                return Err(CliError::UnknownOption(opt))
             }
         }
     }
