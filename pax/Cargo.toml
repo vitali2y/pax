@@ -3,7 +3,7 @@ name = "pax"
 version = "0.2.1"
 authors = ["Nathan"]
 
-description = "The fastest JavaScript bundler around."
+description = "The fastest JavaScript bundler in the galaxy."
 repository = "https://github.com/nathan/pax"
 license = "MIT"
 readme = "../README.md"
