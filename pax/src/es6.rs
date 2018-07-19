@@ -19,9 +19,9 @@ macro_rules! expected {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Export<'s> {
     Default(&'s str),
-    AllFrom(Cow<'s, str>),
+    AllFrom(&'s str, Cow<'s, str>),
     Named(Vec<ExportSpec<'s>>),
-    NamedFrom(Vec<ExportSpec<'s>>, Cow<'s, str>),
+    NamedFrom(Vec<ExportSpec<'s>>, &'s str, Cow<'s, str>),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -254,35 +254,79 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
     }
 
     if !exports.is_empty() {
-        write!(source_prefix, "Object.defineProperties(exports, {{").unwrap();
-        for export in &exports {
+        let mut inner = String::new();
+        let mut had_binds = false;
+
+        write!(inner, "Object.defineProperties(exports, {{").unwrap();
+        for (i, export) in exports.iter().enumerate() {
             match *export {
                 Export::Default(bind) => {
                     write!(
-                        source_prefix,
+                        inner,
                         "\n  default: {{get() {{return {}}}, enumerable: true}},",
                         bind,
                     ).unwrap();
                 }
-                Export::AllFrom(_) => unimplemented!(),
                 Export::Named(ref specs) => {
                     for spec in specs {
                         write!(
-                            source_prefix,
+                            inner,
                             "\n  {}: {{get() {{return {}}}, enumerable: true}},",
                             spec.name,
                             spec.bind,
                         ).unwrap();
                     }
                 }
-                Export::NamedFrom(_, _) => unimplemented!(),
+                Export::AllFrom(name_source, _) |
+                Export::NamedFrom(_, name_source, _) => {
+                    if !had_binds {
+                        write!(source_prefix, "~function() {{\n").unwrap();
+                        had_binds = true;
+                    }
+                    write!(source_prefix, "const __reexport{} = require._esModule({})\n", i, name_source).unwrap();
+
+                    match export {
+                        Export::NamedFrom(ref specs, _, _) => {
+                            for spec in specs {
+                                write!(
+                                    inner,
+                                    "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true}},",
+                                    spec.name,
+                                    i,
+                                    spec.bind,
+                                ).unwrap();
+                            }
+                        }
+                        Export::AllFrom(_, _) => {
+                            write!(
+                                source_prefix,
+                                "Object.defineProperties(exports, Object.getOwnPropertyDescriptors(__reexport{}))\n",
+                                i,
+                            ).unwrap();
+                        }
+                        _ => unreachable!(),
+                    }
+                }
             }
         }
-        write!(source_prefix, "\n}});\n").unwrap();
+        write!(source_prefix, "{}\n}});\n", inner).unwrap();
+        if had_binds {
+            write!(source_prefix, "}}();\n").unwrap();
+        }
     }
 
     for import in imports {
         deps.insert(import.module);
+    }
+    for export in exports {
+        match export {
+            Export::Default(_) => {}
+            Export::Named(_) => {}
+            Export::AllFrom(_, name) |
+            Export::NamedFrom(_, _, name) => {
+                deps.insert(name);
+            }
+        }
     }
     Ok(CjsModule {
         source_prefix,
@@ -324,9 +368,9 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
         },
         Tt::Star => eat!(lex => tok { source.push_str(tok.ws_before) },
             Tt::Id("from") => eat!(lex => tok { source.push_str(tok.ws_before) },
-                Tt::StrLitSgl(module) |
-                Tt::StrLitDbl(module) => {
-                    Ok(Export::AllFrom(match lex::str_lit_value(module) {
+                Tt::StrLitSgl(module_source) |
+                Tt::StrLitDbl(module_source) => {
+                    Ok(Export::AllFrom(module_source, match lex::str_lit_value(module_source) {
                         Ok(module) => module,
                         Err(error) => return Err(Error {
                             kind: ErrorKind::ParseStrLitError(error),
@@ -375,9 +419,9 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
             }
             eat!(lex => tok { source.push_str(tok.ws_before) },
                 Tt::Id("from") => eat!(lex => tok { source.push_str(tok.ws_before) },
-                    Tt::StrLitSgl(module) |
-                    Tt::StrLitDbl(module) => {
-                        Ok(Export::NamedFrom(exports, match lex::str_lit_value(module) {
+                    Tt::StrLitSgl(module_source) |
+                    Tt::StrLitDbl(module_source) => {
+                        Ok(Export::NamedFrom(exports, module_source, match lex::str_lit_value(module_source) {
                             Ok(module) => module,
                             Err(error) => return Err(Error {
                                 kind: ErrorKind::ParseStrLitError(error),
@@ -706,7 +750,7 @@ mod test {
     fn test_export_ns_from() {
         assert_export_form!(
             "export * from 'a_module' _next",
-            Export::AllFrom(Cow::Borrowed("a_module")),
+            Export::AllFrom("'a_module'", "a_module"),
             "   ",
         );
     }
@@ -722,7 +766,7 @@ mod test {
                 ExportSpec::new("default", "something_else"),
                 ExportSpec::same("default"),
                 ExportSpec::same("default"),
-            ], Cow::Borrowed("a_module")),
+            ], "'a_module'", "a_module"),
             "                ",
         );
     }
