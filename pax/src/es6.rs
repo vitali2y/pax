@@ -277,34 +277,28 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                         ).unwrap();
                     }
                 }
-                Export::AllFrom(name_source, _) |
-                Export::NamedFrom(_, name_source, _) => {
+                Export::AllFrom(name_source, _) => {
+                    write!(
+                        source_prefix,
+                        "Object.defineProperties(exports, Object.getOwnPropertyDescriptors(require._esModule({})))\n",
+                        name_source,
+                    ).unwrap();
+                }
+                Export::NamedFrom(ref specs, name_source, _) => {
                     if !had_binds {
                         write!(source_prefix, "~function() {{\n").unwrap();
                         had_binds = true;
                     }
                     write!(source_prefix, "const __reexport{} = require._esModule({})\n", i, name_source).unwrap();
 
-                    match export {
-                        Export::NamedFrom(ref specs, _, _) => {
-                            for spec in specs {
-                                write!(
-                                    inner,
-                                    "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true}},",
-                                    spec.name,
-                                    i,
-                                    spec.bind,
-                                ).unwrap();
-                            }
-                        }
-                        Export::AllFrom(_, _) => {
-                            write!(
-                                source_prefix,
-                                "Object.defineProperties(exports, Object.getOwnPropertyDescriptors(__reexport{}))\n",
-                                i,
-                            ).unwrap();
-                        }
-                        _ => unreachable!(),
+                    for spec in specs {
+                        write!(
+                            inner,
+                            "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true}},",
+                            spec.name,
+                            i,
+                            spec.bind,
+                        ).unwrap();
                     }
                 }
             }
