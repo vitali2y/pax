@@ -9,9 +9,11 @@ extern crate json;
 extern crate memchr;
 extern crate base64;
 #[macro_use]
-extern crate cfg_if;
-#[macro_use]
 extern crate matches;
+
+#[cfg(test)]
+#[macro_use]
+extern crate cfg_if;
 
 use std::{env, process, io, fs, thread, time, iter, fmt};
 use std::io::prelude::*;
