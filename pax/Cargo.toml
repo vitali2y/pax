@@ -16,8 +16,13 @@ exclude = [
   "private/*",
 ]
 
+[features]
+default = []
+bench = []
+
 [dependencies]
 esparse = { version = "0.0.4", path = "../esparse" }
+cfg-if = "0.1.4"
 crossbeam = "0.2"
 num_cpus = "1.6"
 matches = "0.1"

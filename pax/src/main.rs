@@ -1,4 +1,4 @@
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 #[macro_use]
 extern crate esparse;
@@ -8,6 +8,8 @@ extern crate notify;
 extern crate json;
 extern crate memchr;
 extern crate base64;
+#[macro_use]
+extern crate cfg_if;
 #[macro_use]
 extern crate matches;
 
