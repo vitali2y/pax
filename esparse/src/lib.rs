@@ -1,6 +1,6 @@
 //! A fast JavaScript parser. Currently only a [lexical analyzer](lex/index.html) and a [skipper](skip/index.html).
 
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 #![warn(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/esparse/0.0.4")]
@@ -8,6 +8,10 @@
 #[macro_use]
 extern crate matches;
 extern crate memchr;
+
+#[cfg(test)]
+#[macro_use]
+extern crate cfg_if;
 
 #[macro_use]
 pub mod lex;

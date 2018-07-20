@@ -4870,7 +4870,9 @@ fn utf8_char_width(b: u8) -> usize {
 }*/
 
 #[cfg(test)]
+#[allow(unused_imports)]
 mod test {
+    #[cfg(feature = "bench")]
     extern crate test;
 
     use super::*;
@@ -5786,46 +5788,51 @@ mod test {
         assert_eq!(str_lit_value(r"'\x65'"), Ok(Cow::Owned("e".to_owned())));
     }
 
-    fn bench_lex_file(b: &mut test::Bencher, filename: &str) {
-        let mut file = fs::File::open(filename).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
+    cfg_if! {
+        if #[cfg(feature = "bench")] {
+            #[bench]
+            fn bench_lex_file(b: &mut test::Bencher, filename: &str) {
+                let mut file = fs::File::open(filename).unwrap();
+                let mut contents = String::new();
+                file.read_to_string(&mut contents).unwrap();
 
-        b.iter(|| {
-            let mut lexer = Lexer::new_unnamed(&contents);
-            loop {
-                if lexer.advance().tt == Tt::Eof {
-                    break
-                }
+                b.iter(|| {
+                    let mut lexer = Lexer::new_unnamed(&contents);
+                    loop {
+                        if lexer.advance().tt == Tt::Eof {
+                            break
+                        }
+                    }
+                });
             }
-        });
-    }
 
-    #[bench]
-    fn bench_angular_lex(b: &mut test::Bencher) {
-        bench_lex_file(b, "data/angular-1.2.5.js");
-    }
-
-    #[bench]
-    #[ignore]
-    fn bench_big_lex(b: &mut test::Bencher) {
-        // 5,013,820
-        bench_lex_file(b, "private/big.js");
-    }
-
-    #[bench]
-    #[ignore]
-    fn bench_big_stream(b: &mut test::Bencher) {
-        // 5013820
-        let mut file = fs::File::open("private/big.js").unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-
-        b.iter(|| {
-            let mut stream = LocStream::new(&contents);
-            while let Some(_) = stream.here() {
-                stream.advance();
+            #[bench]
+            fn bench_angular_lex(b: &mut test::Bencher) {
+                bench_lex_file(b, "data/angular-1.2.5.js");
             }
-        });
+
+            #[bench]
+            #[ignore]
+            fn bench_big_lex(b: &mut test::Bencher) {
+                // 5,013,820
+                bench_lex_file(b, "private/big.js");
+            }
+
+            #[bench]
+            #[ignore]
+            fn bench_big_stream(b: &mut test::Bencher) {
+                // 5013820
+                let mut file = fs::File::open("private/big.js").unwrap();
+                let mut contents = String::new();
+                file.read_to_string(&mut contents).unwrap();
+
+                b.iter(|| {
+                    let mut stream = LocStream::new(&contents);
+                    while let Some(_) = stream.here() {
+                        stream.advance();
+                    }
+                });
+            }
+        }
     }
 }
