@@ -744,7 +744,7 @@ mod test {
     fn test_export_ns_from() {
         assert_export_form!(
             "export * from 'a_module' _next",
-            Export::AllFrom("'a_module'", "a_module"),
+            Export::AllFrom("'a_module'", Cow::Borrowed("a_module")),
             "   ",
         );
     }
@@ -760,7 +760,7 @@ mod test {
                 ExportSpec::new("default", "something_else"),
                 ExportSpec::same("default"),
                 ExportSpec::same("default"),
-            ], "'a_module'", "a_module"),
+            ], "'a_module'", Cow::Borrowed("a_module")),
             "                ",
         );
     }
