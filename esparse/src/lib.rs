@@ -50,5 +50,5 @@ pub fn parse_expr(_input: &str, _options: ParseOptions) -> ! {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
 }
