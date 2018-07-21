@@ -4930,6 +4930,26 @@ mod test {
     }
 
     #[test]
+    fn test_identifiers() {
+        // http://unicode.org/reports/tr31/
+        lex_test("
+            _ $ _$ $_ _1 $1
+            ne retur return1 return$ into r1
+            éüßΩπ
+            \u{0646}\u{0627}\u{0645}\u{0647}\u{200C}\u{0627}\u{06CC}
+            \u{0D26}\u{0D43}\u{0D15}\u{0D4D}\u{200C}\u{0D38}\u{0D3E}\u{0D15}\u{0D4D}\u{0D37}\u{0D3F}
+            \u{0DC1}\u{0DCA}\u{200D}\u{0DBB}\u{0DD3}\u{0DBD}\u{0D82}\u{0D9A}\u{0DCF}
+        ", &[
+            Tt::Id("_"), Tt::Id("$"), Tt::Id("_$"), Tt::Id("$_"), Tt::Id("_1"), Tt::Id("$1"),
+            Tt::Id("ne"), Tt::Id("retur"), Tt::Id("return1"), Tt::Id("return$"), Tt::Id("into"), Tt::Id("r1"),
+            Tt::Id("éüßΩπ"),
+            Tt::Id("\u{0646}\u{0627}\u{0645}\u{0647}\u{200C}\u{0627}\u{06CC}"),
+            Tt::Id("\u{0D26}\u{0D43}\u{0D15}\u{0D4D}\u{200C}\u{0D38}\u{0D3E}\u{0D15}\u{0D4D}\u{0D37}\u{0D3F}"),
+            Tt::Id("\u{0DC1}\u{0DCA}\u{200D}\u{0DBB}\u{0DD3}\u{0DBD}\u{0D82}\u{0D9A}\u{0DCF}"),
+        ])
+    }
+
+    #[test]
     fn test_punctuators() {
         lex_test(r#"
             {()[]
