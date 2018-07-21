@@ -171,7 +171,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         let ref modules = self.sorted_modules();
         let dir = self.entry_point.parent().unwrap();
 
-        #[derive(Serialize)]
+        #[derive(Serialize, Debug)]
         #[serde(rename_all = "camelCase")]
         struct SourceMap<'a> {
             version: u8,
@@ -183,6 +183,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             mappings: Mappings<'a>,
         }
 
+        #[derive(Debug)]
         struct Sources<'a> {
             modules: &'a [(&'a Path, &'a Module)],
             dir: &'a Path,
@@ -200,6 +201,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             }
         }
 
+        #[derive(Debug)]
         struct SourcesContent<'a> {
             modules: &'a [(&'a Path, &'a Module)],
         }
@@ -215,6 +217,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             }
         }
 
+        #[derive(Debug)]
         struct Mappings<'a> {
             modules: &'a [(&'a Path, &'a Module)],
         }
