@@ -4632,14 +4632,12 @@ pub trait Stream<'s> {
                         Some('/') => {
                             self.advance();
                             self.advance();
-                            self.skip_while(|c| match c {
-                                  '\u{000A}' // LINE FEED (LF)          <LF>
+                            self.skip_while(|c| !matches!(c,
+                                | '\u{000A}' // LINE FEED (LF)          <LF>
                                 | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
                                 | '\u{2028}' // LINE SEPARATOR          <LS>
                                 | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
-                                => false,
-                                _ => true,
-                            });
+                            ));
                         },
                         _ => break,
                     },
