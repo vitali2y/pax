@@ -1269,7 +1269,7 @@ impl<'f, 's> Lexer<'f, 's> {
 
             _ => {
                 // TODO '\\'
-                if here == '$' || here == '_' || UnicodeXID::is_xid_start(here) {
+                if matches!(here, 'a' ... 'z' | 'A' ... 'Z' | '0' ... '9' | '$' | '_') || UnicodeXID::is_xid_start(here) {
                     self.stream.skip_id_continue_chars();
                     let id = self.stream.str_from(start);
                     match id {
@@ -1493,7 +1493,10 @@ pub trait Stream<'s> {
     #[inline]
     fn skip_id_continue_chars(&mut self) {
         self.skip_while(|c| match c {
-              '$'
+              'a'...'z'
+            | 'A'...'Z'
+            | '0'...'9'
+            | '$'
             | '_'
             | '\u{200C}' // ZERO WIDTH NON-JOINER
             | '\u{200D}' // ZERO WIDTH JOINER
