@@ -1,6 +1,6 @@
 [package]
 name = "esparse"
-version = "0.0.4" # should match html_root_url
+version = "0.1.0" # should match html_root_url
 authors = ["Nathan"]
 
 description = "A fast JavaScript parser. Currently only a lexical analyzer."
