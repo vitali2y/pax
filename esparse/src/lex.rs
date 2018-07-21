@@ -5793,6 +5793,7 @@ mod test {
                         }
                     }
                 });
+                b.bytes = contents.len() as u64;
             }
 
             #[bench]
@@ -5821,6 +5822,7 @@ mod test {
                         stream.advance();
                     }
                 });
+                b.bytes = contents.len() as u64;
             }
         }
     }
