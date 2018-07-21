@@ -8,6 +8,7 @@
 #[macro_use]
 extern crate matches;
 extern crate memchr;
+extern crate unicode_xid;
 
 #[cfg(test)]
 #[macro_use]
