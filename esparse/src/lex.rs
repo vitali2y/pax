@@ -4587,14 +4587,6 @@ pub trait Stream<'s> {
                     => {
                         self.advance();
                     }
-                    //   '\u{000A}' // LINE FEED (LF)       <LF>
-                    // | '\u{000D}' // CARRIAGE RETURN (CR) <CR>
-                    // | '\u{2028}' // LINE SEPARATOR       <LS>
-                    // | '\u{2029}' // PARAGRAPH SEPARATOR  <PS>
-                    // => {
-                    //     self.advance();
-                    //     nl = true;
-                    // }
                     '/' => match self.next() {
                         Some('*') => {
                             self.advance();
