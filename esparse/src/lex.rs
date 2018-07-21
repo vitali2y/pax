@@ -5817,7 +5817,7 @@ mod test {
                 file.read_to_string(&mut contents).unwrap();
 
                 b.iter(|| {
-                    let mut stream = LocStream::new(&contents);
+                    let mut stream = PosStream::new(&contents);
                     while let Some(_) = stream.here() {
                         stream.advance();
                     }
