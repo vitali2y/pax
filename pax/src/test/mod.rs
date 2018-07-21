@@ -72,5 +72,50 @@ cfg_if! {
                 let _ = bundle(&entry_point, input_options, &output, &map_output).unwrap();
             });
         }
+
+        #[bench]
+        fn bench_write_map_to(b: &mut test::Bencher) {
+            let writer = Writer {
+                modules: {
+                    let mut modules = HashMap::new();
+                    for i in 0..1000 {
+                        let mut path = PathBuf::new();
+                        path.push(i.to_string());
+                        path.push("examples/es6-everywhere-simple/node_modules/itt/index.js");
+                        modules.insert(
+                            path,
+                            Module {
+                                source: Source {
+                                    prefix: "~function() {".to_owned(),
+                                    body: include_str!("itt.js").to_owned(),
+                                    suffix: "}()".to_owned(),
+                                    original: None,
+                                },
+                                deps: {
+                                    let mut deps = HashMap::new();
+                                    deps.insert("./math".to_owned(), Resolved::Normal(
+                                        Path::new("examples/es6-everywhere-simple/math.js").to_owned(),
+                                    ));
+                                    deps.insert("itt".to_owned(), Resolved::Normal(
+                                        Path::new("examples/es6-everywhere-simple/node_modules/itt/index.js").to_owned(),
+                                    ));
+                                    deps
+                                },
+                            },
+                        );
+                    }
+                    modules
+                },
+                entry_point: Path::new("examples/es6-everywhere-simple/index.js"),
+                map_output: &SourceMapOutput::Inline,
+            };
+
+            let mut out = Vec::new();
+            b.iter(|| {
+                out.clear();
+                writer.write_map_to(&mut out).unwrap();
+            });
+            b.bytes = out.len() as u64;
+        }
     }
 }
