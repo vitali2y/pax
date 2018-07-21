@@ -5780,7 +5780,6 @@ mod test {
 
     cfg_if! {
         if #[cfg(feature = "bench")] {
-            #[bench]
             fn bench_lex_file(b: &mut test::Bencher, filename: &str) {
                 let mut file = fs::File::open(filename).unwrap();
                 let mut contents = String::new();
