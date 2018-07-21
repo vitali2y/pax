@@ -5,7 +5,10 @@ extern crate esparse;
 extern crate crossbeam;
 extern crate num_cpus;
 extern crate notify;
-extern crate json;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 extern crate memchr;
 extern crate base64;
 #[macro_use]
@@ -15,9 +18,9 @@ extern crate matches;
 #[macro_use]
 extern crate cfg_if;
 
-use std::{env, process, io, fs, thread, time, iter, fmt};
+use std::{env, process, io, fs, thread, time, iter, fmt, str};
 use std::io::prelude::*;
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 use std::path::{self, PathBuf, Path, Component};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,6 +32,8 @@ use std::ffi::OsString;
 use crossbeam::sync::SegQueue;
 use notify::Watcher;
 use esparse::lex::{self, Tt};
+use serde::ser::{Serialize, Serializer, SerializeSeq};
+use serde_json::Value;
 
 mod opts;
 mod es6;
@@ -88,9 +93,12 @@ struct Writer<'a, 'b> {
 }
 
 impl<'a, 'b> Writer<'a, 'b> {
-    fn sorted_modules(&self) -> Vec<(&PathBuf, &Module)> {
-        let mut modules = self.modules.iter().collect::<Vec<_>>();
-        modules.sort_by(|&(ref f, _), &(ref g, _)| f.cmp(g));
+    fn sorted_modules(&self) -> Vec<(&Path, &Module)> {
+        let mut modules = self.modules
+            .iter()
+            .map(|(p, m)| (p.as_path(), m))
+            .collect::<Vec<_>>();
+        modules.sort_by(|(f, _), (g, _)| f.cmp(g));
         modules
     }
 
@@ -157,80 +165,120 @@ impl<'a, 'b> Writer<'a, 'b> {
         Ok(())
     }
 
-    fn write_map_to<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
-        // TODO this is borderline unmaintainable, but constructing a JsonValue is *really* wasteful
-
-        let modules = self.sorted_modules();
+    fn write_map_to<W: io::Write>(&self, w: &mut W) -> serde_json::Result<()> {
+        let ref modules = self.sorted_modules();
         let dir = self.entry_point.parent().unwrap();
 
-        w.write_all(br#"{"version":3,"file":"","sourceRoot":"","sources":["#)?;
-
-        let mut comma = false;
-        for &(f, _) in &modules {
-            if comma {
-                w.write_all(b",")?;
-            }
-            let relative = f.relative_from(dir);
-            let path = relative.as_ref().unwrap_or(f);
-            let string = path.to_string_lossy();
-            write_json_string(w, string.as_ref())?;
-            comma = true;
-        }
-        w.write_all(br#"],"sourcesContent":["#)?;
-
-        let mut comma = false;
-        for &(_, module) in &modules {
-            if comma {
-                w.write_all(b",")?;
-            }
-            write_json_string(w, module.source.original.as_ref().unwrap_or_else(|| &module.source.body))?;
-            comma = true;
-        }
-        w.write_all(br#"],"names":[],"mappings":""#)?;
-
-        let prefix_len = count_lines(HEAD_JS); /*+ this.mains.size*/
-        for _ in 0..prefix_len {
-            w.write_all(b";")?;
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct SourceMap<'a> {
+            version: u8,
+            file: &'static str,
+            source_root: &'static str,
+            sources: Sources<'a>,
+            sources_content: SourcesContent<'a>,
+            names: [(); 0],
+            mappings: Mappings<'a>,
         }
 
-        let mut line = 0;
-        let mut buf = [0u8; 13];
-        for (index, &(_, module)) in modules.iter().enumerate() {
-            w.write_all(b";")?;
-            if !module.source.prefix.is_empty() {
-                for _ in 0..count_lines(&module.source.prefix) {
-                    w.write_all(b";")?;
+        struct Sources<'a> {
+            modules: &'a [(&'a Path, &'a Module)],
+            dir: &'a Path,
+        }
+
+        impl<'a> Serialize for Sources<'a> {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let mut seq = serializer.serialize_seq(None)?;
+                for (f, _) in self.modules {
+                    let relative = f.relative_from(self.dir);
+                    let path = relative.as_ref().map_or(*f, PathBuf::as_path);
+                    seq.serialize_element(&path.to_string_lossy())?;
                 }
+                seq.end()
             }
-            for i in 0..count_lines(&module.source.body) {
-                w.write_all(b"A")?;
-                if i == 0 {
-                    if index == 0 {
-                        w.write_all(b"AAA")?;
-                    } else {
-                        w.write_all(b"C")?;
-                        w.write_all(vlq(&mut buf, -line))?;
-                        w.write_all(b"A")?;
+        }
+
+        struct SourcesContent<'a> {
+            modules: &'a [(&'a Path, &'a Module)],
+        }
+
+        impl<'a> Serialize for SourcesContent<'a> {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let mut seq = serializer.serialize_seq(None)?;
+                for (_, module) in self.modules {
+                    let content = module.source.original.as_ref().unwrap_or(&module.source.body);
+                    seq.serialize_element(content)?;
+                }
+                seq.end()
+            }
+        }
+
+        struct Mappings<'a> {
+            modules: &'a [(&'a Path, &'a Module)],
+        }
+
+        impl<'a> Serialize for Mappings<'a> {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.collect_str(self)
+            }
+        }
+
+        impl<'a> Display for Mappings<'a> {
+            fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+                let prefix_len = count_lines(HEAD_JS); /*+ this.mains.size*/
+                for _ in 0..prefix_len {
+                    w.write_str(";")?;
+                }
+
+                let mut line = 0;
+                let mut buf = [0u8; 13];
+                for (index, &(_, module)) in self.modules.iter().enumerate() {
+                    w.write_str(";")?;
+                    if !module.source.prefix.is_empty() {
+                        for _ in 0..count_lines(&module.source.prefix) {
+                            w.write_str(";")?;
+                        }
                     }
-                    line = 0;
-                } else {
-                    w.write_all(b"ACA")?;
-                    line += 1;
+                    for i in 0..count_lines(&module.source.body) {
+                        w.write_str("A")?;
+                        if i == 0 {
+                            if index == 0 {
+                                w.write_str("AAA")?;
+                            } else {
+                                w.write_str("C")?;
+                                w.write_str(str::from_utf8(vlq(&mut buf, -line)).unwrap())?;
+                                w.write_str("A")?;
+                            }
+                            line = 0;
+                        } else {
+                            w.write_str("ACA")?;
+                            line += 1;
+                        }
+                        w.write_str(";")?;
+                    }
+                    if !matches!(module.source.body.chars().last(), None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')) {
+                        w.write_str(";")?;
+                    }
+                    for _ in 0..count_lines(&module.source.suffix)-1 {
+                        w.write_str(";")?;
+                    }
                 }
-                w.write_all(b";")?;
-            }
-            if !matches!(module.source.body.chars().last(), None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')) {
-                w.write_all(b";")?;
-            }
-            for _ in 0..count_lines(&module.source.suffix)-1 {
-                w.write_all(b";")?;
+                for _ in 0..2 + count_lines(TAIL_JS) + 1 - 1 - 1 {
+                    w.write_str(";")?;
+                }
+                Ok(())
             }
         }
-        for _ in 0..2 + count_lines(TAIL_JS) + 1 - 1 - 1 {
-            w.write_all(b";")?;
-        }
-        w.write_all(br#""}"#)?;
-        Ok(())
+
+        serde_json::to_writer(w, &SourceMap {
+            version: 3,
+            file: "",
+            source_root: "",
+            sources: Sources { modules, dir },
+            sources_content: SourcesContent { modules },
+            names: [],
+            mappings: Mappings { modules },
+        })
     }
 
     fn stringify_deps(deps: &HashMap<String, Resolved>) -> String {
@@ -243,7 +291,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                     if comma {
                         result.push(',');
                     }
-                    result.push_str(&json::stringify(json::JsonValue::from(name.as_ref())));
+                    result.push_str(&to_quoted_json_string(name));
                     result.push(':');
                     Self::write_name_path(path, &mut result);
                     comma = true;
@@ -258,14 +306,14 @@ impl<'a, 'b> Writer<'a, 'b> {
     fn js_path(path: &Path) -> String {
         // TODO untested
         let string = path.to_string_lossy();
-        let replaced = string.as_ref().replace('\\', "/");
-        json::stringify(json::JsonValue::from(replaced))
+        let replaced = string.replace('\\', "/");
+        to_quoted_json_string(&replaced)
     }
 
     #[cfg(not(target_os = "windows"))]
     fn js_path(path: &Path) -> String {
-        let string = path.to_string_lossy().into_owned();
-        json::stringify(json::JsonValue::from(string))
+        let string = path.to_string_lossy();
+        to_quoted_json_string(&string)
     }
 
     fn name_path(path: &Path) -> String {
@@ -301,75 +349,15 @@ impl<'a, 'b> Writer<'a, 'b> {
     }
 }
 
+fn to_quoted_json_string(s: &str) -> String {
+    // Serializing to a String only fails if the Serialize impl decides to fail,
+    // which the Serialize impl of `str` never does.
+    serde_json::to_string(s).unwrap()
+}
+
 fn count_lines(source: &str) -> usize {
     // TODO non-ASCII line terminators?
     1 + memchr::Memchr::new(b'\n', source.as_bytes()).count()
-}
-
-const QU: u8 = b'"';
-const BS: u8 = b'\\';
-const BB: u8 = b'b';
-const TT: u8 = b't';
-const NN: u8 = b'n';
-const FF: u8 = b'f';
-const RR: u8 = b'r';
-const UU: u8 = b'u';
-const __: u8 = 0;
-
-static ESCAPED: [u8; 256] = [
-// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-  UU, UU, UU, UU, UU, UU, UU, UU, BB, TT, NN, UU, FF, RR, UU, UU, // 0
-  UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, // 1
-  __, __, QU, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
-  __, __, __, __, __, __, __, __, __, __, __, __, BS, __, __, __, // 5
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
-];
-
-#[inline(never)]
-#[cold]
-fn write_json_string_complex<W: io::Write>(w: &mut W, string: &str, mut start: usize) -> io::Result<()> {
-    w.write_all(string[..start].as_bytes())?;
-
-    for (index, ch) in string.bytes().enumerate().skip(start) {
-        let escape = ESCAPED[ch as usize];
-        if escape > 0 {
-            w.write_all(string[start..index].as_bytes())?;
-            w.write_all(&[b'\\', escape])?;
-            start = index + 1;
-        }
-        if escape == b'u' {
-            write!(w, "{:04x}", ch)?;
-        }
-    }
-    w.write_all(string[start..].as_bytes())?;
-    w.write_all(&[b'"'])?;
-    Ok(())
-}
-
-#[inline]
-fn write_json_string<W: io::Write>(w: &mut W, string: &str) -> io::Result<()> {
-    w.write_all(&[b'"'])?;
-
-    for (index, ch) in string.bytes().enumerate() {
-        if ESCAPED[ch as usize] > 0 {
-            return write_json_string_complex(w, string, index)
-        }
-    }
-
-    w.write_all(string.as_bytes())?;
-    w.write_all(&[b'"'])?;
-    Ok(())
 }
 
 fn vlq(buf: &mut [u8; 13], n: isize) -> &[u8] {
@@ -842,7 +830,7 @@ pub enum CliError {
     MainNotFound { name: String },
 
     Io(io::Error),
-    Json(json::Error),
+    Json(serde_json::Error),
     Notify(notify::Error),
     Es6(es6::Error),
     Lex(lex::Error),
@@ -854,8 +842,8 @@ impl From<io::Error> for CliError {
         CliError::Io(inner)
     }
 }
-impl From<json::Error> for CliError {
-    fn from(inner: json::Error) -> CliError {
+impl From<serde_json::Error> for CliError {
+    fn from(inner: serde_json::Error) -> CliError {
         CliError::Json(inner)
     }
 }
@@ -1156,9 +1144,19 @@ impl Worker {
                 let mut string = String::new();
                 buf_reader.read_to_string(&mut string)?;
 
-                let result = json::parse(&string)?;
-                match result["main"].as_str() {
-                    None => {}
+                #[derive(Deserialize)]
+                struct Package {
+                    #[serde(default)]
+                    main: Value,
+
+                    // Efficiently skip deserializing other fields.
+                }
+
+                let result: Package = serde_json::from_str(&string)?;
+                match result.main.as_str() {
+                    None => {
+                        // Do nothing if `main` is not present or not a string.
+                    }
                     Some(main) => {
                         path.append_resolving(main);
                     }
