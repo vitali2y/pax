@@ -47,13 +47,13 @@ exports.square = x => x * x
 ```
 
 ```sh
-> pax index.js bundle.js
+> px index.js bundle.js
 ```
 
 Slap on a `<script src=bundle.js>`, and you’re ready to go. Pass `-w` to rebuild whenever you change a file.
 
 ```sh
-> pax -w index.js bundle.js
+> px -w index.js bundle.js
  ready bundle.js in 1 ms
 update bundle.js in 1 ms
 ...
@@ -65,15 +65,15 @@ Of course!
 
 ```sh
 # bundle.js and bundle.js.map
-> pax index.js bundle.js
+> px index.js bundle.js
 
 # bundle.js with inline map
-> pax --map-inline index.js bundle.js
+> px --map-inline index.js bundle.js
 
 # bundle.js with no source map
-> pax index.js >bundle.js
+> px index.js >bundle.js
 # or
-> pax --no-map index.js bundle.js
+> px --no-map index.js bundle.js
 ```
 
 # Modules?
@@ -93,7 +93,7 @@ export const square = x => x * x, cube = x => x * x * x
 ```
 
 ```
-> pax -e index.mjs bundle.js
+> px -e index.mjs bundle.js
 ```
 
 If you need your modules to be in `.js` files for some reason, use `-E` (`--es-syntax-everywhere`) instead of `-e` (`--es-syntax`).
@@ -101,12 +101,12 @@ If you need your modules to be in `.js` files for some reason, use `-E` (`--es-s
 # What are the options?
 
 ```
-> pax --help
-pax v0.2.1
+> px --help
+pax v0.2.3
 
 Usage:
-    pax [options] <input> [output]
-    pax [-h | --help]
+    px [options] <input> [output]
+    px [-h | --help]
 
 Options:
     -i, --input <input>
@@ -174,7 +174,7 @@ sys     0m0.031s
 real    0m0.373s
 user    0m0.324s
 sys     0m0.051s
-> time pax index.js >bundle.js
+> time px index.js >bundle.js
 real    0m0.010s
 user    0m0.005s
 sys     0m0.006s
@@ -184,7 +184,7 @@ sys     0m0.006s
 real    0m2.385s
 user    0m2.459s
 sys     0m0.416s
-> time pax src/main.js >bundle.js
+> time px src/main.js >bundle.js
 real    0m0.037s
 user    0m0.071s
 sys     0m0.019s
@@ -194,13 +194,13 @@ sys     0m0.019s
 real    0m3.142s
 user    0m3.060s
 sys     0m0.483s
-> time pax src/main.js bundle.js
+> time px src/main.js bundle.js
 real    0m0.046s
 user    0m0.077s
 sys     0m0.026s
 
 # realtime!
-> pax -w examples/simple bundle.js
+> px -w examples/simple bundle.js
  ready bundle.js in 2 ms
 update bundle.js in 2 ms
 update bundle.js in 2 ms
