@@ -800,22 +800,22 @@ mod test {
     fn test_import_bare() {
         assert_import_form!(
             "import 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::None,
-            },
+            }),
             " ",
         );
         assert_import_form!(
             "import \"a_module\" _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "\"a_module\"",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::None,
-            },
+            }),
             " ",
         );
     }
@@ -824,22 +824,22 @@ mod test {
     fn test_import_default() {
         assert_import_form!(
             "import test from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: Some("test"),
                 binds: Bindings::None,
-            },
+            }),
             "   ",
         );
         assert_import_form!(
             "import test from \"a_module\" _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "\"a_module\"",
                 module: Cow::Borrowed("a_module"),
                 default_bind: Some("test"),
                 binds: Bindings::None,
-            },
+            }),
             "   ",
         );
     }
@@ -848,22 +848,22 @@ mod test {
     fn test_import_name_space() {
         assert_import_form!(
             "import * as test from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::NameSpace("test"),
-            },
+            }),
             "     ",
         );
         assert_import_form!(
             "import * as test from \"a_module\" _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "\"a_module\"",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::NameSpace("test"),
-            },
+            }),
             "     ",
         );
     }
@@ -872,51 +872,51 @@ mod test {
     fn test_import_named() {
         assert_import_form!(
             "import { } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::Named(vec![]),
-            },
+            }),
             "    ",
         );
         assert_import_form!(
             "import { } from \"a_module\" _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "\"a_module\"",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::Named(vec![]),
-            },
+            }),
             "    ",
         );
         assert_import_form!(
             "import { name } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::Named(vec![
                     ImportSpec::same("name"),
                 ]),
-            },
+            }),
             "     ",
         );
         assert_import_form!(
             "import { name , } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::Named(vec![
                     ImportSpec::same("name"),
                 ]),
-            },
+            }),
             "      ",
         );
         assert_import_form!(
             "import { name , another } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
@@ -924,36 +924,36 @@ mod test {
                     ImportSpec::same("name"),
                     ImportSpec::same("another"),
                 ]),
-            },
+            }),
             "       ",
         );
         assert_import_form!(
             "import { name as thing } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::Named(vec![
                     ImportSpec::new("name", "thing"),
                 ]),
-            },
+            }),
             "       ",
         );
         assert_import_form!(
             "import { name as thing , } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
                 binds: Bindings::Named(vec![
                     ImportSpec::new("name", "thing"),
                 ]),
-            },
+            }),
             "        ",
         );
         assert_import_form!(
             "import { name as thing , another , third as one } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
@@ -962,7 +962,7 @@ mod test {
                     ImportSpec::same("another"),
                     ImportSpec::new("third", "one"),
                 ]),
-            },
+            }),
             "             ",
         );
     }
@@ -971,17 +971,17 @@ mod test {
     fn test_import_default_named() {
         assert_import_form!(
             "import test , { } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: Some("test"),
                 binds: Bindings::Named(vec![]),
-            },
+            }),
             "      ",
         );
         assert_import_form!(
             "import test , { name as thing , another , third as one } from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: Some("test"),
@@ -990,7 +990,7 @@ mod test {
                     ImportSpec::same("another"),
                     ImportSpec::new("third", "one"),
                 ]),
-            },
+            }),
             "               ",
         );
     }
@@ -999,22 +999,22 @@ mod test {
     fn test_import_default_name_space() {
         assert_import_form!(
             "import def , * as test from 'a_module' _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: Some("def"),
                 binds: Bindings::NameSpace("test"),
-            },
+            }),
             "       ",
         );
         assert_import_form!(
             "import def , * as test from \"a_module\" _next",
-            Import {
+            ParsedImport::Import(Import {
                 module_source: "\"a_module\"",
                 module: Cow::Borrowed("a_module"),
                 default_bind: Some("def"),
                 binds: Bindings::NameSpace("test"),
-            },
+            }),
             "       ",
         );
     }
