@@ -118,7 +118,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             let filename = Self::js_path(&file);
 
             write!(w,
-                "\n  Pax.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require) {{\n",
+                "\n  Pax.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require, __import_meta) {{\n",
                 filename = filename,
                 id = id,
                 deps = deps,
