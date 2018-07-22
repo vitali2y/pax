@@ -974,7 +974,7 @@ fn main() {
                     println!("{}", kind);
                 }
                 _ => {
-                    println!("{}: {}", APP_NAME, kind);
+                    println!("{}: {}", EXE_NAME, kind);
                 }
             }
             1
