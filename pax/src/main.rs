@@ -394,7 +394,6 @@ impl Vlq {
 }
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-
 #[derive(Debug, Clone)]
 struct Worker {
     tx: mpsc::Sender<Result<WorkDone, CliError>>,
