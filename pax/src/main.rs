@@ -251,7 +251,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                                 w.write_str("AAA")?;
                             } else {
                                 w.write_str("C")?;
-                                w.write_str(str::from_utf8(vlq(&mut buf, -line)).unwrap())?;
+                                w.write_str(vlq(&mut buf, -line))?;
                                 w.write_str("A")?;
                             }
                             line = 0;
@@ -365,7 +365,7 @@ fn count_lines(source: &str) -> usize {
     1 + memchr::Memchr::new(b'\n', source.as_bytes()).count()
 }
 
-fn vlq(buf: &mut [u8; 13], n: isize) -> &[u8] {
+fn vlq(buf: &mut [u8; 13], n: isize) -> &str {
     let sign = n < 0;
     let n = if sign { -n } else { n } as usize;
     let mut y = (n & 0xf) << 1 | sign as usize;
@@ -379,7 +379,7 @@ fn vlq(buf: &mut [u8; 13], n: isize) -> &[u8] {
         l += 1;
     }
     buf[l] = B64[y];
-    &buf[0..l+1]
+    str::from_utf8(&buf[0..l+1]).unwrap()
 }
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
