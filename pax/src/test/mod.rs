@@ -7,6 +7,21 @@ use std::path::Path;
 use std::process;
 use super::*;
 
+#[test]
+fn test_count_lines() {
+    assert_eq!(count_lines(""), 1);
+    assert_eq!(count_lines("this is a line"), 1);
+    assert_eq!(count_lines("this is a line\n"), 2);
+    assert_eq!(count_lines("\nthis is a line"), 2);
+    assert_eq!(count_lines("\n\n\nthis is a line"), 4);
+    assert_eq!(count_lines("this is a line\n\n\n"), 4);
+    assert_eq!(count_lines("these\nare\nlines"), 3);
+    assert_eq!(count_lines("\r\n"), 2);
+    assert_eq!(count_lines("this is a line\r\n"), 2);
+    assert_eq!(count_lines("\r\nthis is a line"), 2);
+    assert_eq!(count_lines("these\nare\r\nlines"), 3);
+}
+
 cfg_if! {
     if #[cfg(feature = "bench")] {
         fn npm_install(dir: &Path) {
