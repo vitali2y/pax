@@ -344,8 +344,9 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
 fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Result<Export<'s>> {
     eat!(lex => tok { source.push_str(tok.ws_before) },
         Tt::Default => {
-            eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+            eat!(lex => tok,
                 Tt::Class => {
+                    write!(source, "{}{}", tok.ws_before, tok.tt).unwrap();
                     let name = eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
                         Tt::Id(name) => name,
                         _ => expected!(lex, "class name"),
@@ -353,6 +354,7 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                     Ok(Export::Default(name))
                 },
                 Tt::Function => {
+                    write!(source, "{}{}", tok.ws_before, tok.tt).unwrap();
                     eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
                         Tt::Star => {},
                         _ => {},
@@ -362,6 +364,26 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
                         _ => expected!(lex, "function name"),
                     );
                     Ok(Export::Default(name))
+                },
+                Tt::Id("async") => {
+                    if !lex.here().nl_before && matches!(lex.here().tt, Tt::Function) {
+                        let tok2 = lex.advance();
+                        write!(source, "{}{}", tok.ws_before, tok.tt).unwrap();
+                        write!(source, "{}{}", tok2.ws_before, tok2.tt).unwrap();
+                        eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+                            Tt::Star => {},
+                            _ => {},
+                        );
+                        let name = eat!(lex => tok { write!(source, "{}{}", tok.ws_before, tok.tt).unwrap(); },
+                            Tt::Id(name) => name,
+                            _ => expected!(lex, "function name"),
+                        );
+                        Ok(Export::Default(name))
+                    } else {
+                        write!(source, "const __default = {}{}", tok.ws_before, tok.tt).unwrap();
+                        // skip::expr(lex, Prec::NoComma)?;
+                        Ok(Export::Default("__default"))
+                    }
                 },
                 _ => {
                     source.push_str("const __default = ");
@@ -521,7 +543,40 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
 
             Ok(Export::Named(vec![ExportSpec::same(name)]))
         },
-        // TODO Tt::Id("async") =>
+        Tt::Id("async") => {
+            let start_pos = tok.span.start;
+
+            eat!(lex => tok,
+                Tt::Function => {
+                    if tok.nl_before {
+                        expected!(lex, "no line terminator between 'function' and 'async'")
+                    }
+                },
+                _ => expected!(lex, "'function' following 'async'"),
+            );
+            eat!(lex,
+                Tt::Star => {},
+                _ => {},
+            );
+            let name = eat!(lex,
+                Tt::Id(name) => name,
+                _ => expected!(lex, "function name"),
+            );
+            // eat!(lex,
+            //     Tt::Lparen => skip::balanced_parens(lex, 1)?,
+            //     _ => expected!(lex, "formal parameter list"),
+            // );
+            // eat!(lex,
+            //     Tt::Lbrace => skip::balanced_braces(lex, 1)?,
+            //     _ => expected!(lex, "function body"),
+            // );
+
+            let here = lex.here();
+            let end_pos = here.span.start - here.ws_before.len();
+            source.push_str(&lex.input()[start_pos..end_pos]);
+
+            Ok(Export::Named(vec![ExportSpec::same(name)]))
+        },
         _ => expected!(lex, "keyword 'default' or '*' or '{' or declaration"),
     )
 }
@@ -689,13 +744,39 @@ mod test {
             // "  function* testGen() {}",
             "  function* testGen",
         );
+        assert_export_form!(
+            "export default async function testAsync() {} _next",
+            Export::Default("testAsync"),
+            // "  async function testAsync() {}",
+            "  async function testAsync",
+        );
+        assert_export_form!(
+            "export default async function* testAsyncGen() {} _next",
+            Export::Default("testAsyncGen"),
+            // "  async function* testAsyncGen() {}",
+            "  async function* testAsyncGen",
+        );
+        assert_export_form!(
+            "export default async _next",
+            Export::Default("__default"),
+            // "  async function* testAsyncGen() {}",
+            " const __default =  async",
+        );
+        assert_export_form!(
+            "export default async\nfunction not() {} _next",
+            Export::Default("__default"),
+            // "  async function* testAsyncGen() {}",
+            " const __default =  async",
+        );
     }
 
     #[test]
-    fn test_export_default_exprs_panic() {
+    fn test_export_default_err() {
         assert_export_form_err!("export default class {} _next");
         assert_export_form_err!("export default function() {} _next");
         assert_export_form_err!("export default function*() {} _next");
+        assert_export_form_err!("export default async function() {} _next");
+        assert_export_form_err!("export default async function*() {} _next");
     }
 
     #[test]
@@ -746,6 +827,23 @@ mod test {
             // " function* testGen2() {}",
             " function* testGen2",
         );
+        assert_export_form!(
+            "export async function asyncTest2() {} _next",
+            Export::Named(vec![ExportSpec::same("asyncTest2")]),
+            // " function asyncTest2() {}",
+            " async function asyncTest2",
+        );
+        assert_export_form!(
+            "export async function* asyncTestGen2() {} _next",
+            Export::Named(vec![ExportSpec::same("asyncTestGen2")]),
+            // " function* asyncTestGen2() {}",
+            " async function* asyncTestGen2",
+        );
+    }
+
+    #[test]
+    fn test_export_hoistable_declaration_err() {
+        assert_export_form_err!("export async\nfunction not() {} _next");
     }
 
     #[test]
