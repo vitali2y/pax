@@ -43,6 +43,14 @@ cfg_if! {
         }
 
         #[bench]
+        fn bench_vlq(b: &mut test::Bencher) {
+            let mut buf = [0u8; 13];
+            b.iter(|| {
+                test::black_box(vlq(&mut buf, -1001));
+            });
+        }
+
+        #[bench]
         fn bench_cjs_simple(b: &mut test::Bencher) {
             let entry_point = Path::new("examples/simple/index.js");
             npm_install(entry_point.parent().unwrap());
