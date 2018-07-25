@@ -748,12 +748,13 @@ fn run() -> Result<(), CliError> {
 }
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
+const EXE_NAME: &str = "px";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "\
 Usage: {0} [options] <input> [output]
-       {0} [-h | --help | -v | --version]", APP_NAME)
+       {0} [-h | --help | -v | --version]", EXE_NAME)
 }
 
 fn write_version(f: &mut fmt::Formatter) -> fmt::Result {
@@ -979,7 +980,7 @@ fn main() {
                     println!("{}", kind);
                 }
                 _ => {
-                    println!("{}: {}", APP_NAME, kind);
+                    println!("{}: {}", EXE_NAME, kind);
                 }
             }
             1

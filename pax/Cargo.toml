@@ -11,11 +11,16 @@ readme = "../README.md"
 keywords = ["js", "javascript", "es", "ecmascript", "bundler"]
 categories = ["development-tools", "command-line-utilities", "web-programming"]
 
+autobins = true
 exclude = [
   "examples/*",
   "private/*",
   "src/test/*",
 ]
+
+[[bin]]
+name = "px"
+path = "src/main.rs"
 
 [features]
 default = []
