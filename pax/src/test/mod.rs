@@ -27,17 +27,17 @@ fn test_vlq() {
     // 0000000000000000111111111111111122222222222222223333333333333333
     // 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     // ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
-    let mut buf = [0u8; 13];
-    assert_eq!(vlq(&mut buf, 0), "A");
-    assert_eq!(vlq(&mut buf, 1), "C");
-    assert_eq!(vlq(&mut buf, -1), "D");
-    assert_eq!(vlq(&mut buf, 5), "K");
-    assert_eq!(vlq(&mut buf, -5), "L");
-    assert_eq!(vlq(&mut buf, 15), "e");
-    assert_eq!(vlq(&mut buf, -15), "f");
-    assert_eq!(vlq(&mut buf, 16), "gB");
-    assert_eq!(vlq(&mut buf, 1876), "o1D"); // 11 10101 0100
-    assert_eq!(vlq(&mut buf, -485223), "v2zd"); // 11101 10011 10110 0111
+    let mut vlq = Vlq::new();
+    assert_eq!(vlq.enc(0), "A");
+    assert_eq!(vlq.enc(1), "C");
+    assert_eq!(vlq.enc(-1), "D");
+    assert_eq!(vlq.enc(5), "K");
+    assert_eq!(vlq.enc(-5), "L");
+    assert_eq!(vlq.enc(15), "e");
+    assert_eq!(vlq.enc(-15), "f");
+    assert_eq!(vlq.enc(16), "gB");
+    assert_eq!(vlq.enc(1876), "o1D"); // 11 10101 0100
+    assert_eq!(vlq.enc(-485223), "v2zd"); // 11101 10011 10110 0111
 }
 
 cfg_if! {
@@ -62,9 +62,9 @@ cfg_if! {
 
         #[bench]
         fn bench_vlq(b: &mut test::Bencher) {
-            let mut buf = [0u8; 13];
+            let mut vlq = Vlq::new();
             b.iter(|| {
-                test::black_box(vlq(&mut buf, -1001));
+                test::black_box(vlq.enc(-1001));
             });
         }
 
