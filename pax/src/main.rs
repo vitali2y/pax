@@ -18,7 +18,7 @@ extern crate matches;
 #[macro_use]
 extern crate cfg_if;
 
-use std::{env, process, io, fs, thread, time, iter, fmt, str};
+use std::{env, process, io, fs, thread, time, iter, fmt, str, string};
 use std::io::prelude::*;
 use std::fmt::{Display, Write};
 use std::path::{self, PathBuf, Path, Component};
@@ -834,6 +834,8 @@ pub enum CliError {
     ModuleNotFound { context: PathBuf, name: String },
     MainNotFound { name: String },
 
+    InvalidUtf8 { context: PathBuf, err: string::FromUtf8Error },
+
     Io(io::Error),
     Json(serde_json::Error),
     Notify(notify::Error),
@@ -935,6 +937,10 @@ impl fmt::Display for CliError {
             }
             CliError::MainNotFound { ref name } => {
                 write!(f, "main module '{}' not found", name)
+            }
+
+            CliError::InvalidUtf8 { ref context, ref err } => {
+                write!(f, "in {}: {}", context.display(), err)
             }
 
             CliError::Io(ref inner) => {
@@ -1145,9 +1151,20 @@ impl Worker {
         path.pop();
         match result {
             Ok(file) => {
-                let mut buf_reader = io::BufReader::new(file);
-                let mut string = String::new();
-                buf_reader.read_to_string(&mut string)?;
+                let string = {
+                    let mut buf_reader = io::BufReader::new(file);
+                    let mut bytes = Vec::new();
+                    buf_reader.read_to_end(&mut bytes)?;
+                    match String::from_utf8(bytes) {
+                        Ok(s) => s,
+                        Err(err) => {
+                            return Err(CliError::InvalidUtf8 {
+                                context: path.join("package.json"),
+                                err,
+                            })
+                        }
+                    }
+                };
 
                 #[derive(Deserialize)]
                 struct Package {
@@ -1240,10 +1257,19 @@ impl Worker {
     }
 
     fn include(&self, module: &Path) -> Result<ModuleInfo, CliError> {
-        let mut source = String::new();
-        let file = fs::File::open(module)?;
-        let mut buf_reader = io::BufReader::new(file);
-        buf_reader.read_to_string(&mut source)?;
+        let source = {
+            let file = fs::File::open(module)?;
+            let mut buf_reader = io::BufReader::new(file);
+            let mut bytes = Vec::new();
+            buf_reader.read_to_end(&mut bytes)?;
+            match String::from_utf8(bytes) {
+                Ok(s) => s,
+                Err(err) => return Err(CliError::InvalidUtf8 {
+                    context: module.to_owned(),
+                    err,
+                }),
+            }
+        };
         let mut new_source = None;
         let prefix;
         let suffix;
