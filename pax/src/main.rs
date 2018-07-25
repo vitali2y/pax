@@ -355,8 +355,7 @@ impl<'a, 'b> Writer<'a, 'b> {
 }
 
 fn to_quoted_json_string(s: &str) -> String {
-    // Serializing to a String only fails if the Serialize impl decides to fail,
-    // which the Serialize impl of `str` never does.
+    // Serializing to a String only fails if the Serialize impl decides to fail, which the Serialize impl of `str` never does.
     serde_json::to_string(s).unwrap()
 }
 
