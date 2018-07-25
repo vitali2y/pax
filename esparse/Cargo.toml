@@ -21,7 +21,7 @@ default = []
 bench = []
 
 [dependencies]
-memchr = "1.0.1"
+memchr = "2.0.1"
 matches = "0.1"
 cfg-if = "0.1.4"
 unicode-xid = "0.1.0"
