@@ -48,7 +48,7 @@
       module.require._deps = fn.deps
       module.require.main = self ? self.require.main : module
       if (self) self.children.push(module)
-      fn(module, module.exports, module.require, {url: 'file://' + (fn.filename.charAt(0) === '/' ? '' : '/') + fn.filename})
+      fn(module, module.exports, module.require, fn.filename, fn.filename.split('/').slice(0, -1).join('/'), {url: 'file://' + (fn.filename.charAt(0) === '/' ? '' : '/') + fn.filename})
       module.loaded = true
       return module
     }
