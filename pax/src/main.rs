@@ -698,6 +698,10 @@ fn run() -> Result<(), CliError> {
     let entry_point = Worker::resolve_main(input_options, input_dir, &input)?;
 
     if watch {
+        let progress_line = format!(" build {output} ...", output = output);
+        eprint!("{}", progress_line);
+        io::Write::flush(&mut io::stderr())?;
+
         let mut modules = bundle(&entry_point, input_options, &output, &map_output)?;
         let elapsed = entry_inst.elapsed();
         let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_millis());
@@ -710,7 +714,7 @@ fn run() -> Result<(), CliError> {
             watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
         }
 
-        eprintln!(" ready {output} in {ms} ms", output = output, ms = ms);
+        eprintln!("{bs} ready {output} in {ms} ms", output = output, ms = ms, bs = "\u{8}".repeat(progress_line.len()));
 
         loop {
             let first_event = rx.recv().expect("notify::watcher disconnected");
@@ -719,14 +723,14 @@ fn run() -> Result<(), CliError> {
                 let _op = event.op?;
             }
 
+            eprint!("update {} ...", output);
+            io::Write::flush(&mut io::stderr())?;
             let start_inst = time::Instant::now();
             match bundle(&entry_point, input_options, &output, &map_output) {
                 Ok(new_modules) => {
                     let elapsed = start_inst.elapsed();
                     let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_millis());
-                    eprintln!("update {output} in {ms} ms",
-                        output = output,
-                        ms = ms);
+                    eprintln!("{bs}in {ms} ms", ms = ms, bs = "\u{8}".repeat(3));
 
                     {
                         let mut to_unwatch = modules.keys().collect::<HashSet<_>>();
