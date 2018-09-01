@@ -11,8 +11,11 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate memchr;
 extern crate base64;
+extern crate regex;
 #[macro_use]
 extern crate matches;
+#[macro_use]
+extern crate lazy_static;
 
 #[cfg(test)]
 #[macro_use]
@@ -34,12 +37,14 @@ use notify::Watcher;
 use esparse::lex::{self, Tt};
 use serde::ser::{Serialize, Serializer, SerializeSeq};
 use serde_json::Value;
+use regex::Regex;
 
 mod opts;
 mod es6;
 
 const HEAD_JS: &str = include_str!("head.js");
 const TAIL_JS: &str = include_str!("tail.js");
+const CORE_MODULES: &[&str] = &["assert", "buffer", "child_process", "cluster", "crypto", "dgram", "dns", "domain", "events", "fs", "http", "https", "net", "os", "path", "punycode", "querystring", "readline", "stream", "string_decoder", "tls", "tty", "url", "util", "v8", "vm", "zlib"];
 
 fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s, str>>, CliError> {
     // TODO should we panic on dynamic requires?
@@ -291,7 +296,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         let mut comma = false;
         for (name, resolved) in deps {
             match *resolved {
-                Resolved::Core => {}
+                Resolved::External => {}
                 Resolved::Normal(ref path) => {
                     if comma {
                         result.push(',');
@@ -435,15 +440,16 @@ pub struct Source {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Resolved {
-    Core,
+    External,
     // CoreWithSubst(PathBuf),
     Normal(PathBuf),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputOptions {
     pub es6_syntax: bool,
     pub es6_syntax_everywhere: bool,
+    pub external: HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -515,7 +521,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                     }
                 }
                 match resolved {
-                    Resolved::Core => {}
+                    Resolved::External => {}
                     Resolved::Normal(module) => {
                         modules.entry(module.clone()).or_insert_with(|| {
                             worker.add_work(Work::Include { module });
@@ -606,6 +612,7 @@ fn run() -> Result<(), CliError> {
     let mut no_map = false;
     let mut watch = false;
     let mut quiet_watch = false;
+    let mut external = HashSet::new();
 
     let mut iter = opts::args();
     while let Some(arg) = iter.next() {
@@ -636,6 +643,20 @@ fn run() -> Result<(), CliError> {
             "-E" | "--es-syntax-everywhere" => {
                 es6_syntax = true;
                 es6_syntax_everywhere = true;
+            }
+            "-x" | "--external" => {
+                lazy_static! {
+                    static ref COMMA: Regex = Regex::new(r#"\s*,\s*"#).unwrap();
+                }
+                let mods = iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?;
+                for m in COMMA.split(&mods) {
+                    external.insert(m.to_string());
+                }
+            }
+            "--external-core" => {
+                for m in CORE_MODULES {
+                    external.insert(m.to_string());
+                }
             }
             "-m" | "--map" => {
                 if map.is_some() {
@@ -693,16 +714,17 @@ fn run() -> Result<(), CliError> {
     let input_options = InputOptions {
         es6_syntax,
         es6_syntax_everywhere,
+        external,
     };
 
-    let entry_point = Worker::resolve_main(input_options, input_dir, &input)?;
+    let entry_point = Worker::resolve_main(&input_options, input_dir, &input)?;
 
     if watch {
         let progress_line = format!(" build {output} ...", output = output);
         eprint!("{}", progress_line);
         io::Write::flush(&mut io::stderr())?;
 
-        let mut modules = bundle(&entry_point, input_options, &output, &map_output)?;
+        let mut modules = bundle(&entry_point, input_options.clone(), &output, &map_output)?;
         let elapsed = entry_inst.elapsed();
         let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_millis());
 
@@ -726,7 +748,7 @@ fn run() -> Result<(), CliError> {
             eprint!("update {} ...", output);
             io::Write::flush(&mut io::stderr())?;
             let start_inst = time::Instant::now();
-            match bundle(&entry_point, input_options, &output, &map_output) {
+            match bundle(&entry_point, input_options.clone(), &output, &map_output) {
                 Ok(new_modules) => {
                     let elapsed = start_inst.elapsed();
                     let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_millis());
@@ -823,6 +845,15 @@ Options:
     -E, --es-syntax-everywhere
         Implies --es-syntax. Allow ECMAScript module syntax in .js files.
         CJS-style `require()` calls are also allowed.
+
+    -x, --external <module1,module2,...>
+        Don't resolve or include modules named <module1>, <module2>, etc.;
+        leave them as require('<module>') references in the bundle. Specifying
+        a path instead of a module name does nothing.
+
+    --external-core
+        Ignore references to node.js core modules like 'events' and leave them
+        as require('<module>') references in the bundle.
 
     -h, --help
         Print this message.
@@ -1094,7 +1125,7 @@ impl Worker {
         }
     }
 
-    fn resolve_main(input_options: InputOptions, mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
+    fn resolve_main(input_options: &InputOptions, mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
         dir.append_resolving(Path::new(name));
         Self::resolve_path_or_module(input_options, None, dir)?.ok_or_else(|| {
             CliError::MainNotFound {
@@ -1112,7 +1143,7 @@ impl Worker {
         let path = Path::new(name);
         if path.is_absolute() {
             Ok(Resolved::Normal(
-                Self::resolve_path_or_module(self.input_options, Some(context),path.to_owned())?.ok_or_else(|| {
+                Self::resolve_path_or_module(&self.input_options, Some(context),path.to_owned())?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1125,7 +1156,7 @@ impl Worker {
             debug_assert!(did_pop);
             dir.append_resolving(path);
             Ok(Resolved::Normal(
-                Self::resolve_path_or_module(self.input_options, Some(context), dir)?.ok_or_else(|| {
+                Self::resolve_path_or_module(&self.input_options, Some(context), dir)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1133,9 +1164,8 @@ impl Worker {
                 })?,
             ))
         } else {
-            match name {
-                "assert" | "buffer" | "child_process" | "cluster" | "crypto" | "dgram" | "dns" | "domain" | "events" | "fs" | "http" | "https" | "net" | "os" | "path" | "punycode" | "querystring" | "readline" | "stream" | "string_decoder" | "tls" | "tty" | "url" | "util" | "v8" | "vm" | "zlib" => return Ok(Resolved::Core),
-                _ => {}
+            if self.input_options.external.contains(name) {
+                return Ok(Resolved::External)
             }
 
             let mut suffix = PathBuf::from("node_modules");
@@ -1148,7 +1178,7 @@ impl Worker {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) = Self::resolve_path_or_module(self.input_options, Some(context), new_path)? {
+                if let Some(result) = Self::resolve_path_or_module(&self.input_options, Some(context), new_path)? {
                     return Ok(Resolved::Normal(result))
                 }
             }
@@ -1159,7 +1189,7 @@ impl Worker {
             })
         }
     }
-    fn resolve_path_or_module(input_options: InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path_or_module(input_options: &InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         path.push("package.json");
         let result = fs::File::open(&path);
         path.pop();
@@ -1207,7 +1237,7 @@ impl Worker {
         Self::resolve_path(input_options, context, path)
     }
 
-    fn resolve_path(input_options: InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+    fn resolve_path(input_options: &InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         // <path>
         if path.is_file() {
             return Ok(Some(path))
