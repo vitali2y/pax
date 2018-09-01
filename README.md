@@ -152,6 +152,15 @@ Options:
         Implies --es-syntax. Allow ECMAScript module syntax in .js files.
         CJS-style `require()` calls are also allowed.
 
+    -x, --external <module1,module2,...>
+        Don't resolve or include modules named <module1>, <module2>, etc.;
+        leave them as require('<module>') references in the bundle. Specifying
+        a path instead of a module name does nothing.
+
+    --external-core
+        Ignore references to node.js core modules like 'events' and leave them
+        as require('<module>') references in the bundle.
+
     -h, --help
         Print this message.
 
