@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Write;
 use std::borrow::Cow;
-use std::collections::HashSet;
+use fnv::FnvHashSet;
 
 use esparse;
 use esparse::lex::{self, Tt};
@@ -104,7 +104,7 @@ pub struct CjsModule<'s> {
     pub source_prefix: String,
     pub source: String,
     pub source_suffix: String,
-    pub deps: HashSet<Cow<'s, str>>,
+    pub deps: FnvHashSet<Cow<'s, str>>,
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -157,7 +157,7 @@ impl fmt::Display for ErrorKind {
 
 pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) -> Result<CjsModule<'s>> {
     let mut source = String::new();
-    let mut deps = HashSet::new();
+    let mut deps = FnvHashSet::default();
     let mut imports = Vec::new();
     let mut exports = Vec::new();
     // TODO source map lines won't match up when module string literal contains newlines

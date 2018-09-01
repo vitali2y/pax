@@ -29,6 +29,7 @@ bench = []
 [dependencies]
 esparse = { version = "0.1.0", path = "../esparse" }
 regex = "1"
+fnv = "1.0.3"
 lazy_static = "1.1.0"
 cfg-if = "0.1.4"
 crossbeam = "0.2"

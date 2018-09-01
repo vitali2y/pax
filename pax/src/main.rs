@@ -12,6 +12,7 @@ extern crate serde_json;
 extern crate memchr;
 extern crate base64;
 extern crate regex;
+extern crate fnv;
 #[macro_use]
 extern crate matches;
 #[macro_use]
@@ -28,10 +29,10 @@ use std::path::{self, PathBuf, Path, Component};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::collections::{HashMap, HashSet};
 use std::any::Any;
 use std::borrow::Cow;
 use std::ffi::OsString;
+use fnv::{FnvHashMap, FnvHashSet};
 use crossbeam::sync::SegQueue;
 use notify::Watcher;
 use esparse::lex::{self, Tt};
@@ -46,9 +47,9 @@ const HEAD_JS: &str = include_str!("head.js");
 const TAIL_JS: &str = include_str!("tail.js");
 const CORE_MODULES: &[&str] = &["assert", "buffer", "child_process", "cluster", "crypto", "dgram", "dns", "domain", "events", "fs", "http", "https", "net", "os", "path", "punycode", "querystring", "readline", "stream", "string_decoder", "tls", "tty", "url", "util", "v8", "vm", "zlib"];
 
-fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s, str>>, CliError> {
+fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<FnvHashSet<Cow<'s, str>>, CliError> {
     // TODO should we panic on dynamic requires?
-    let mut deps = HashSet::new();
+    let mut deps = FnvHashSet::default();
     loop {
         eat!(lex,
             // Tt::Id(s) if s == "require" => eat!(lex,
@@ -92,7 +93,7 @@ fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<HashSet<Cow<'s
 
 #[derive(Debug)]
 struct Writer<'a, 'b> {
-    modules: HashMap<PathBuf, Module>,
+    modules: FnvHashMap<PathBuf, Module>,
     entry_point: &'a Path,
     map_output: &'b SourceMapOutput<'b>,
 }
@@ -291,7 +292,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         })
     }
 
-    fn stringify_deps(deps: &HashMap<String, Resolved>) -> String {
+    fn stringify_deps(deps: &FnvHashMap<String, Resolved>) -> String {
         let mut result = "{".to_owned();
         let mut comma = false;
         for (name, resolved) in deps {
@@ -424,7 +425,7 @@ enum ModuleState {
 #[derive(Debug)]
 pub struct Module {
     pub source: Source,
-    pub deps: HashMap<String, Resolved>,
+    pub deps: FnvHashMap<String, Resolved>,
 }
 #[derive(Debug)]
 struct ModuleInfo {
@@ -449,7 +450,7 @@ pub enum Resolved {
 pub struct InputOptions {
     pub es6_syntax: bool,
     pub es6_syntax_everywhere: bool,
-    pub external: HashSet<String>,
+    pub external: FnvHashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -471,7 +472,7 @@ impl ModuleState {
     }
 }
 
-pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_output: &SourceMapOutput) -> Result<HashMap<PathBuf, Module>, CliError> {
+pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_output: &SourceMapOutput) -> Result<FnvHashMap<PathBuf, Module>, CliError> {
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
@@ -485,7 +486,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     // TODO: context.require('…')
     // TODO: watch for missing files on error?
 
-    let mut modules = HashMap::<PathBuf, ModuleState>::new();
+    let mut modules = FnvHashMap::<PathBuf, ModuleState>::default();
 
     worker.add_work(Work::Include { module: entry_point.to_owned() });
     pending += 1;
@@ -534,7 +535,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
             WorkDone::Include { module, info } => {
                 let old = modules.insert(module.clone(), ModuleState::Loaded(Module {
                     source: info.source,
-                    deps: HashMap::new(),
+                    deps: FnvHashMap::default(),
                 }));
                 debug_assert_matches!(old, Some(ModuleState::Loading));
                 for dep in info.deps {
@@ -612,7 +613,7 @@ fn run() -> Result<(), CliError> {
     let mut no_map = false;
     let mut watch = false;
     let mut quiet_watch = false;
-    let mut external = HashSet::new();
+    let mut external = FnvHashSet::default();
 
     let mut iter = opts::args();
     while let Some(arg) = iter.next() {
@@ -755,8 +756,8 @@ fn run() -> Result<(), CliError> {
                     eprintln!("{bs}in {ms} ms", ms = ms, bs = "\u{8}".repeat(3));
 
                     {
-                        let mut to_unwatch = modules.keys().collect::<HashSet<_>>();
-                        let mut to_watch = new_modules.keys().collect::<HashSet<_>>();
+                        let mut to_unwatch = modules.keys().collect::<FnvHashSet<_>>();
+                        let mut to_watch = new_modules.keys().collect::<FnvHashSet<_>>();
                         for path in modules.keys() {
                             to_watch.remove(&path);
                         }
@@ -1334,7 +1335,7 @@ impl Worker {
                 new_source = Some(module.source);
 
             } else if matches!(ext, Some(s) if s == "json") {
-                deps = HashSet::new();
+                deps = FnvHashSet::default();
                 prefix = "module.exports =".to_owned();
                 suffix = String::new();
 

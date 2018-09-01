@@ -118,7 +118,7 @@ cfg_if! {
         fn bench_write_map_to(b: &mut test::Bencher) {
             let writer = Writer {
                 modules: {
-                    let mut modules = HashMap::new();
+                    let mut modules = FnvHashMap::default();
                     for i in 0..1000 {
                         let mut path = PathBuf::new();
                         path.push(i.to_string());
@@ -133,7 +133,7 @@ cfg_if! {
                                     original: None,
                                 },
                                 deps: {
-                                    let mut deps = HashMap::new();
+                                    let mut deps = FnvHashMap::new();
                                     deps.insert("./math".to_owned(), Resolved::Normal(
                                         Path::new("examples/es6-everywhere-simple/math.js").to_owned(),
                                     ));
