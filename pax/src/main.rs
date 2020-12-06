@@ -33,7 +33,7 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::ffi::OsString;
 use fnv::{FnvHashMap, FnvHashSet};
-use crossbeam::sync::SegQueue;
+use crossbeam::queue::SegQueue;
 use notify::Watcher;
 use esparse::lex::{self, Tt};
 use serde::ser::{Serialize, Serializer, SerializeSeq};
@@ -340,7 +340,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         result.push_str("file_");
         for &b in bytes {
             match b {
-                b'_' | b'a'...b'z' | b'A'...b'Z' => {
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' => {
                     result.push(b as char);
                 }
                 _ => {
@@ -888,7 +888,7 @@ pub enum CliError {
     Es6(es6::Error),
     Lex(lex::Error),
     ParseStrLit(lex::ParseStrLitError),
-    Box(Box<Any + Send + 'static>),
+    Box(Box<dyn Any + Send + 'static>),
 }
 impl From<io::Error> for CliError {
     fn from(inner: io::Error) -> CliError {
@@ -920,8 +920,8 @@ impl From<lex::ParseStrLitError> for CliError {
         CliError::ParseStrLit(inner)
     }
 }
-impl From<Box<Any + Send + 'static>> for CliError {
-    fn from(inner: Box<Any + Send + 'static>) -> CliError {
+impl From<Box<dyn Any + Send + 'static>> for CliError {
+    fn from(inner: Box<dyn Any + Send + 'static>) -> CliError {
         CliError::Box(inner)
     }
 }
@@ -1387,7 +1387,7 @@ impl Worker {
 
     fn get_work(&mut self) -> Option<Work> {
         loop {
-            match self.queue.try_pop() {
+            match self.queue.pop() {
                 Some(work) => return Some(work),
                 None => {
                     if self.quit.load(Ordering::Relaxed) {
