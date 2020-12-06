@@ -2,8 +2,8 @@
 
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#![warn(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/esparse/0.1.0")]
+// #![warn(missing_docs)]
+// #![doc(html_root_url = "https://docs.rs/esparse/0.1.0")]
 
 #[macro_use]
 extern crate matches;
